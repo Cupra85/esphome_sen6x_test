@@ -1,6 +1,8 @@
 #include "sen6x.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <vector>
 
 namespace esphome {
@@ -13,33 +15,33 @@ uint8_t SEN6xComponent::crc8_(uint8_t a, uint8_t b) {
   uint8_t crc = 0xFF;
   auto step = [&](uint8_t data) {
     crc ^= data;
-    for (int i = 0; i < 8; i++) crc = (crc & 0x80) ? (crc << 1) ^ 0x31 : (crc << 1);
+    for (int i = 0; i < 8; i++)
+      crc = (crc & 0x80) ? (crc << 1) ^ 0x31 : (crc << 1);
   };
   step(a);
   step(b);
   return crc;
 }
 
-// ===== Command IDs je nach Variante (Tabelle 26) =====
+// ===== Command IDs je nach Variante =====
 uint16_t SEN6xComponent::cmd_start_() const { return is_sen60_() ? 0x2152 : 0x0021; }
-uint16_t SEN6xComponent::cmd_stop_() const  { return is_sen60_() ? 0x3F86 : 0x0104; }
+uint16_t SEN6xComponent::cmd_stop_() const { return is_sen60_() ? 0x3F86 : 0x0104; }
 uint16_t SEN6xComponent::cmd_get_data_ready_() const { return is_sen60_() ? 0xE4B8 : 0x0202; }
 uint16_t SEN6xComponent::cmd_read_measured_values_() const {
   switch (effective_variant_) {
     case Variant::SEN60: return 0xEC05;
     case Variant::SEN63C: return 0x0471;
-    case Variant::SEN65:  return 0x0446;
-    case Variant::SEN66:  return 0x0300;
-    case Variant::SEN68:  return 0x0467;
-    default:              return 0x0471;
+    case Variant::SEN65: return 0x0446;
+    case Variant::SEN66: return 0x0300;
+    case Variant::SEN68: return 0x0467;
+    default: return 0x0471;
   }
 }
 uint16_t SEN6xComponent::cmd_fan_cleaning_() const { return is_sen60_() ? 0x3730 : 0x5607; }
 uint16_t SEN6xComponent::cmd_device_reset_() const { return is_sen60_() ? 0x3F8D : 0xD304; }
-uint16_t SEN6xComponent::cmd_status_read_() const  { return is_sen60_() ? 0xE00B : 0xD206; }
+uint16_t SEN6xComponent::cmd_status_read_() const { return is_sen60_() ? 0xE00B : 0xD206; }
 
 void SEN6xComponent::setup() {
-  // I2C-Adresse setzen nach Variante
   if (variant_config_ == Variant::SEN60) {
     this->set_i2c_address(0x6C);
     effective_variant_ = Variant::SEN60;
@@ -47,7 +49,6 @@ void SEN6xComponent::setup() {
     this->set_i2c_address(0x6B);
     effective_variant_ = variant_config_;
   } else {
-    // AUTO: erst 0x6B probieren (SEN6x), dann 0x6C (SEN60)
     this->set_i2c_address(0x6B);
     if (!this->write(nullptr, 0)) {
       this->set_i2c_address(0x6C);
@@ -61,8 +62,8 @@ void SEN6xComponent::setup() {
         effective_variant_ = Variant::SEN60;
     } else {
       effective_variant_ = (this->get_i2c_address() == 0x6C)
-                             ? Variant::SEN60
-                             : Variant::SEN66;
+                               ? Variant::SEN60
+                               : Variant::SEN66;
     }
   }
 
@@ -83,8 +84,10 @@ void SEN6xComponent::update() {
   if (use_drdy_) {
     std::vector<uint16_t> dr;
     if (read_words_crc_(cmd_get_data_ready_(), dr, is_sen60_() ? 1 : 20)) {
-      if (is_sen60_()) ready = (dr.size() > 0 && (dr[0] & 0x07FF) != 0);
-      else             ready = (dr.size() > 0 && ((dr[0] & 0x00FF) == 0x0001));
+      if (is_sen60_())
+        ready = (dr.size() > 0 && (dr[0] & 0x07FF) != 0);
+      else
+        ready = (dr.size() > 0 && ((dr[0] & 0x00FF) == 0x0001));
     }
   }
   if (!ready) return;
@@ -106,14 +109,14 @@ void SEN6xComponent::update() {
       values_.nc1_0 = nc[1] / 10.0f;
       values_.nc2_5 = nc[2] / 10.0f;
       values_.nc4_0 = nc[3] / 10.0f;
-      values_.nc10  = nc[4] / 10.0f;
+      values_.nc10 = nc[4] / 10.0f;
     }
   }
 
   read_and_log_status_();
 }
 
-// ===== High-level Aktionen (Buttons) =====
+// ===== High-level Aktionen =====
 void SEN6xComponent::start_measurement() {
   if (send_cmd16(cmd_start_())) {
     measurement_started_ = true;
@@ -145,47 +148,48 @@ void SEN6xComponent::clear_status_sen6x() {
 
 // ===== Low-level I2C Helpers =====
 bool SEN6xComponent::send_cmd16(uint16_t cmd) {
-  uint8_t frame[2] = { static_cast<uint8_t>((cmd >> 8) & 0xFF), static_cast<uint8_t>(cmd & 0xFF) };
+  uint8_t frame[2] = {static_cast<uint8_t>((cmd >> 8) & 0xFF),
+                      static_cast<uint8_t>(cmd & 0xFF)};
   auto err = this->write(frame, 2);
   if (err) return true;
   ESP_LOGW(TAG, "I2C send 0x%04X failed", cmd);
   return false;
 }
 
-bool SEN6xComponent::write_words_with_crc_(uint16_t cmd, const std::vector<uint16_t> &words) {
+bool SEN6xComponent::write_words_with_crc_(uint16_t cmd,
+                                           const std::vector<uint16_t> &words) {
   std::vector<uint8_t> buf;
   buf.push_back((cmd >> 8) & 0xFF);
   buf.push_back(cmd & 0xFF);
   for (auto w : words) {
     uint8_t msb = (w >> 8) & 0xFF, lsb = w & 0xFF;
-    buf.push_back(msb); buf.push_back(lsb);
+    buf.push_back(msb);
+    buf.push_back(lsb);
     buf.push_back(crc8_(msb, lsb));
   }
   return this->write(buf.data(), buf.size());
 }
 
-bool SEN6xComponent::read_bytes_(uint16_t cmd, uint8_t *buf, size_t len, uint32_t exec_delay_ms) {
+bool SEN6xComponent::read_bytes_(uint16_t cmd, uint8_t *buf, size_t len,
+                                 uint32_t exec_delay_ms) {
   if (!send_cmd16(cmd)) return false;
-  esphome::delay(exec_delay_ms);   // <- geändert
+  vTaskDelay(pdMS_TO_TICKS(exec_delay_ms));  // ✅ IDF-kompatibles Delay
   auto ok = this->read(buf, len);
   if (!ok) ESP_LOGW(TAG, "I2C read bytes for 0x%04X failed", cmd);
   return ok;
 }
 
-bool SEN6xComponent::read_words_crc_(uint16_t cmd, std::vector<uint16_t> &out, uint32_t exec_delay_ms) {
+bool SEN6xComponent::read_words_crc_(uint16_t cmd, std::vector<uint16_t> &out,
+                                     uint32_t exec_delay_ms) {
   uint8_t tmp[64];
   if (!read_bytes_(cmd, tmp, sizeof(tmp), exec_delay_ms)) return false;
   out.clear();
-  size_t n = 0;
   size_t max = 60;
   for (size_t i = 0; i + 2 < max; i += 3) {
-    uint8_t msb = tmp[i], lsb = tmp[i+1], c = tmp[i+2];
-    if (crc8_(msb, lsb) != c) {
-      break;
-    }
+    uint8_t msb = tmp[i], lsb = tmp[i + 1], c = tmp[i + 2];
+    if (crc8_(msb, lsb) != c) break;
     uint16_t w = (static_cast<uint16_t>(msb) << 8) | lsb;
     out.push_back(w);
-    n = i + 3;
   }
   return !out.empty();
 }
@@ -193,16 +197,16 @@ bool SEN6xComponent::read_words_crc_(uint16_t cmd, std::vector<uint16_t> &out, u
 // ===== Parser =====
 bool SEN6xComponent::parse_sen60_values_bytes_(const std::vector<uint8_t> &b) {
   if (b.size() < 27) return false;
-  auto U16 = [&](int i)->uint16_t { return (uint16_t(b[i]) << 8) | b[i+1]; };
-  values_.pm1_0 = U16(0)  / 10.0f;
-  values_.pm2_5 = U16(3)  / 10.0f;
-  values_.pm4_0 = U16(6)  / 10.0f;
-  values_.pm10  = U16(9)  / 10.0f;
+  auto U16 = [&](int i) -> uint16_t { return (uint16_t(b[i]) << 8) | b[i + 1]; };
+  values_.pm1_0 = U16(0) / 10.0f;
+  values_.pm2_5 = U16(3) / 10.0f;
+  values_.pm4_0 = U16(6) / 10.0f;
+  values_.pm10 = U16(9) / 10.0f;
   values_.nc0_5 = U16(12) / 10.0f;
   values_.nc1_0 = U16(15) / 10.0f;
   values_.nc2_5 = U16(18) / 10.0f;
   values_.nc4_0 = U16(21) / 10.0f;
-  values_.nc10  = U16(24) / 10.0f;
+  values_.nc10 = U16(24) / 10.0f;
   return true;
 }
 
@@ -211,32 +215,32 @@ bool SEN6xComponent::parse_measured_values_(const std::vector<uint16_t> &w) {
   values_.pm1_0 = (w[0] == 0xFFFF) ? NAN : w[0] / 10.0f;
   values_.pm2_5 = (w[1] == 0xFFFF) ? NAN : w[1] / 10.0f;
   values_.pm4_0 = (w[2] == 0xFFFF) ? NAN : w[2] / 10.0f;
-  values_.pm10  = (w[3] == 0xFFFF) ? NAN : w[3] / 10.0f;
+  values_.pm10 = (w[3] == 0xFFFF) ? NAN : w[3] / 10.0f;
 
   switch (effective_variant_) {
     case Variant::SEN63C:
-      values_.rh =  (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
-      values_.t  =  (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
-      values_.co2 = (w[6] == 0x7FFF) ? NAN : (int16_t)w[6];
+      values_.rh = (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
+      values_.t = (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
+      values_.co2 = (w[6] == 0x7FFF) ? NAN : (int16_t) w[6];
       break;
     case Variant::SEN65:
-      values_.rh =  (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
-      values_.t  =  (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
-      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t)w[6] / 10.0f;
-      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t)w[7] / 10.0f;
+      values_.rh = (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
+      values_.t = (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
+      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t) w[6] / 10.0f;
+      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t) w[7] / 10.0f;
       break;
     case Variant::SEN66:
-      values_.rh =  (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
-      values_.t  =  (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
-      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t)w[6] / 10.0f;
-      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t)w[7] / 10.0f;
+      values_.rh = (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
+      values_.t = (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
+      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t) w[6] / 10.0f;
+      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t) w[7] / 10.0f;
       values_.co2 = (w[8] == 0xFFFF) ? NAN : w[8];
       break;
     case Variant::SEN68:
-      values_.rh =  (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
-      values_.t  =  (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
-      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t)w[6] / 10.0f;
-      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t)w[7] / 10.0f;
+      values_.rh = (w[4] == 0x7FFF) ? NAN : w[4] / 100.0f;
+      values_.t = (w[5] == 0x7FFF) ? NAN : w[5] / 200.0f;
+      values_.voc_index = (w[6] == 0x7FFF) ? NAN : (int16_t) w[6] / 10.0f;
+      values_.nox_index = (w[7] == 0x7FFF) ? NAN : (int16_t) w[7] / 10.0f;
       break;
     default: break;
   }
@@ -252,7 +256,7 @@ void SEN6xComponent::read_and_log_status_() {
   } else {
     if (w.size() >= 2) {
       uint32_t st = (uint32_t(w[0]) << 16) | w[1];
-      ESP_LOGD(TAG, "SEN6x status=0x%08lX", (unsigned long)st);
+      ESP_LOGD(TAG, "SEN6x status=0x%08lX", (unsigned long) st);
     }
   }
 }
