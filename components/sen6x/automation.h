@@ -1,4 +1,5 @@
 #pragma once
+
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
 #include "sen6x.h"
@@ -6,40 +7,14 @@
 namespace esphome {
 namespace sen6x {
 
-// Start fan cleaning
-class StartFanAction : public Action<> {
+template<typename... Ts> class StartFanAction : public Action<Ts...> {
  public:
-  explicit StartFanAction(SEN6xComponent *sen6x) : sen6x_(sen6x) {}
-  void play() override { this->sen6x_->start_fan_cleaning(); }
- protected:
-  SEN6xComponent *sen6x_;
-};
+  explicit StartFanAction(SEN5XComponent *sen6x) : sen6x_(sen6x) {}
 
-// Device reset
-class DeviceResetAction : public Action<> {
- public:
-  explicit DeviceResetAction(SEN6xComponent *sen6x) : sen6x_(sen6x) {}
-  void play() override { this->sen6x_->device_reset(); }
- protected:
-  SEN6xComponent *sen6x_;
-};
+  void play(Ts... x) override { this->sen6x_->start_fan_cleaning(); }
 
-// Start measurement
-class StartMeasurementAction : public Action<> {
- public:
-  explicit StartMeasurementAction(SEN6xComponent *sen6x) : sen6x_(sen6x) {}
-  void play() override { this->sen6x_->start_measurement(); }
  protected:
-  SEN6xComponent *sen6x_;
-};
-
-// Stop measurement
-class StopMeasurementAction : public Action<> {
- public:
-  explicit StopMeasurementAction(SEN6xComponent *sen6x) : sen6x_(sen6x) {}
-  void play() override { this->sen6x_->stop_measurement(); }
- protected:
-  SEN6xComponent *sen6x_;
+  SEN5XComponent *sen6x_;
 };
 
 }  // namespace sen6x
