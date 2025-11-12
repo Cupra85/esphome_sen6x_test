@@ -5,9 +5,7 @@ from esphome.const import CONF_ID, CONF_UPDATE_INTERVAL
 
 AUTO_LOAD = ["i2c"]
 
-# Universeller Namespace-Aufruf (funktioniert in allen bekannten ESPHome-Versionen)
 sen6x_ns = cg.global_ns.namespace("esphome").namespace("sen6x")
-
 SEN6xComponent = sen6x_ns.class_("SEN6xComponent", cg.PollingComponent, i2c.I2CDevice)
 
 Variant = sen6x_ns.enum("Variant")
