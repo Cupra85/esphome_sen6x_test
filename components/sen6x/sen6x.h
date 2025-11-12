@@ -1,99 +1,130 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/core/hal.h"
-#include "esphome/components/i2c/i2c.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/sensirion_common/i2c_sensirion.h"
+#include "esphome/core/application.h"
+#include "esphome/core/preferences.h"
 
 namespace esphome {
 namespace sen6x {
 
-// =========================
-//   SEN6x-Varianten
-// =========================
-enum class Variant : uint8_t {
-  AUTO = 0,
-  SEN60,
-  SEN63C,
-  SEN65,
-  SEN66,
-  SEN68,
+enum ERRORCODE {
+  COMMUNICATION_FAILED,
+  SERIAL_NUMBER_IDENTIFICATION_FAILED,
+  MEASUREMENT_INIT_FAILED,
+  PRODUCT_NAME_FAILED,
+  FIRMWARE_FAILED,
+  UNKNOWN
 };
 
-// =========================
-//   Datensatzstruktur
-// =========================
-struct SEN6xValues {
-  float pm1_0 = NAN;
-  float pm2_5 = NAN;
-  float pm4_0 = NAN;
-  float pm10  = NAN;
-  float nc0_5 = NAN;
-  float nc1_0 = NAN;
-  float nc2_5 = NAN;
-  float nc4_0 = NAN;
-  float nc10  = NAN;
-  float rh = NAN;
-  float t = NAN;
-  float voc_index = NAN;
-  float nox_index = NAN;
-  float co2 = NAN;
+// Shortest time interval of 3H for storing baseline values.
+// Prevents wear of the flash because of too many write operations
+const uint32_t SHORTEST_BASELINE_STORE_INTERVAL = 10800;
+// Store anyway if the baseline difference exceeds the max storage diff value
+const uint32_t MAXIMUM_STORAGE_DIFF = 50;
+
+struct Sen5xBaselines {
+  int32_t state0;
+  int32_t state1;
+} PACKED;  // NOLINT
+
+
+struct GasTuning {
+  uint16_t index_offset;
+  uint16_t learning_time_offset_hours;
+  uint16_t learning_time_gain_hours;
+  uint16_t gating_max_duration_minutes;
+  uint16_t std_initial;
+  uint16_t gain_factor;
 };
 
-// =========================
-//   Hauptklasse
-// =========================
-class SEN6xComponent : public PollingComponent, public i2c::I2CDevice {
+struct TemperatureCompensation {
+  int16_t offset;
+  int16_t normalized_offset_slope;
+  uint16_t time_constant;
+};
+
+class SEN5XComponent : public PollingComponent, public sensirion_common::SensirionI2CDevice {
  public:
-  SEN6xComponent() = default;
-
+  float get_setup_priority() const override { return setup_priority::DATA; }
   void setup() override;
-  void update() override;
   void dump_config() override;
+  void update() override;
 
-  // High-level-Befehle (für Buttons / Automationen)
-  void start_measurement();
-  void stop_measurement();
-  void start_fan_cleaning();
-  void device_reset();
-  void clear_status_sen6x();
+  enum Sen5xType { SEN50, SEN54, SEN55, UNKNOWN };
 
-  // Setter
-  void set_variant(Variant v) { this->variant_config_ = v; }
-  void set_update_every(bool use_drdy) { this->use_drdy_ = use_drdy; }
+  void set_pm_1_0_sensor(sensor::Sensor *pm_1_0) { pm_1_0_sensor_ = pm_1_0; }
+  void set_pm_2_5_sensor(sensor::Sensor *pm_2_5) { pm_2_5_sensor_ = pm_2_5; }
+  void set_pm_4_0_sensor(sensor::Sensor *pm_4_0) { pm_4_0_sensor_ = pm_4_0; }
+  void set_pm_10_0_sensor(sensor::Sensor *pm_10_0) { pm_10_0_sensor_ = pm_10_0; }
+
+  void set_voc_sensor(sensor::Sensor *voc_sensor) { voc_sensor_ = voc_sensor; }
+  void set_nox_sensor(sensor::Sensor *nox_sensor) { nox_sensor_ = nox_sensor; }
+  void set_humidity_sensor(sensor::Sensor *humidity_sensor) { humidity_sensor_ = humidity_sensor; }
+  void set_temperature_sensor(sensor::Sensor *temperature_sensor) { temperature_sensor_ = temperature_sensor; }
+  void set_co2_sensor(sensor::Sensor *co2) { co2_sensor_ = co2; }
+  void set_store_baseline(bool store_baseline) { store_baseline_ = store_baseline; }
+  void set_voc_algorithm_tuning(uint16_t index_offset, uint16_t learning_time_offset_hours,
+                                uint16_t learning_time_gain_hours, uint16_t gating_max_duration_minutes,
+                                uint16_t std_initial, uint16_t gain_factor) {
+    GasTuning tuning_params;
+    tuning_params.index_offset = index_offset;
+    tuning_params.learning_time_offset_hours = learning_time_offset_hours;
+    tuning_params.learning_time_gain_hours = learning_time_gain_hours;
+    tuning_params.gating_max_duration_minutes = gating_max_duration_minutes;
+    tuning_params.std_initial = std_initial;
+    tuning_params.gain_factor = gain_factor;
+    voc_tuning_params_ = tuning_params;
+  }
+  void set_nox_algorithm_tuning(uint16_t index_offset, uint16_t learning_time_offset_hours,
+                                uint16_t learning_time_gain_hours, uint16_t gating_max_duration_minutes,
+                                uint16_t gain_factor) {
+    GasTuning tuning_params;
+    tuning_params.index_offset = index_offset;
+    tuning_params.learning_time_offset_hours = learning_time_offset_hours;
+    tuning_params.learning_time_gain_hours = learning_time_gain_hours;
+    tuning_params.gating_max_duration_minutes = gating_max_duration_minutes;
+    tuning_params.std_initial = 50;
+    tuning_params.gain_factor = gain_factor;
+    nox_tuning_params_ = tuning_params;
+  }
+  void set_temperature_compensation(float offset, float normalized_offset_slope, uint16_t time_constant) {
+    TemperatureCompensation temp_comp;
+    temp_comp.offset = offset * 200;
+    temp_comp.normalized_offset_slope = normalized_offset_slope * 10000;
+    temp_comp.time_constant = time_constant;
+    temperature_compensation_ = temp_comp;
+  }
+  bool start_fan_cleaning();
 
  protected:
-  // --- interne Helper ---
-  bool send_cmd16(uint16_t cmd);
-  bool write_words_with_crc_(uint16_t cmd, const std::vector<uint16_t> &words);
-  bool read_bytes_(uint16_t cmd, uint8_t *buf, size_t len, uint32_t exec_delay_ms);
-  bool read_words_crc_(uint16_t cmd, std::vector<uint16_t> &out, uint32_t exec_delay_ms);
-  uint8_t crc8_(uint8_t a, uint8_t b);
+  bool write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning);
+  bool write_temperature_compensation_(const TemperatureCompensation &compensation);
+  ERRORCODE error_code_;
+  bool initialized_{false};
+  sensor::Sensor *pm_1_0_sensor_{nullptr};
+  sensor::Sensor *pm_2_5_sensor_{nullptr};
+  sensor::Sensor *pm_4_0_sensor_{nullptr};
+  sensor::Sensor *pm_10_0_sensor_{nullptr};
+  // SEN54 and SEN55 only
+  sensor::Sensor *temperature_sensor_{nullptr};
+  sensor::Sensor *humidity_sensor_{nullptr};
+  sensor::Sensor *voc_sensor_{nullptr};
+  // SEN55 only
+  sensor::Sensor *nox_sensor_{nullptr};
+  sensor::Sensor *co2_sensor_{nullptr};
 
-  // --- Parser ---
-  bool parse_sen60_values_bytes_(const std::vector<uint8_t> &b);
-  bool parse_measured_values_(const std::vector<uint16_t> &w);
-  void read_and_log_status_();
-
-  // --- Kommandos nach SEN6x-Datenblatt ---
-  uint16_t cmd_start_() const;
-  uint16_t cmd_stop_() const;
-  uint16_t cmd_get_data_ready_() const;
-  uint16_t cmd_read_measured_values_() const;
-  uint16_t cmd_read_number_concentration_() const { return 0x0316; }
-  uint16_t cmd_fan_cleaning_() const;
-  uint16_t cmd_device_reset_() const;
-  uint16_t cmd_status_read_() const;
-
-  // --- interne Statusflags ---
-  bool is_sen60_() const { return effective_variant_ == Variant::SEN60; }
-  bool is_sen6x_() const { return true; }
-
-  // --- Felder ---
-  Variant variant_config_{Variant::AUTO};
-  Variant effective_variant_{Variant::AUTO};
-  bool measurement_started_{false};
-  bool use_drdy_{true};
-  SEN6xValues values_;
+  std::string product_name_;
+  uint8_t serial_number_[4];
+  uint16_t firmware_version_;
+  Sen5xBaselines voc_baselines_storage_;
+  bool store_baseline_;
+  uint32_t seconds_since_last_store_;
+  ESPPreferenceObject pref_;
+  optional<GasTuning> voc_tuning_params_;
+  optional<GasTuning> nox_tuning_params_;
+  optional<TemperatureCompensation> temperature_compensation_;
 };
 
 }  // namespace sen6x
