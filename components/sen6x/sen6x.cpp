@@ -9,379 +9,221 @@ namespace sen6x {
 
 static const char *const TAG = "sen6x";
 
-//static const uint16_t SEN5X_CMD_AUTO_CLEANING_INTERVAL = 0x8004; //not used with Sen6X
-static const uint16_t SEN5X_CMD_GET_DATA_READY_STATUS = 0x0202;
-static const uint16_t SEN5X_CMD_GET_FIRMWARE_VERSION = 0xD100; //works but not documented
-static const uint16_t SEN5X_CMD_GET_PRODUCT_NAME = 0xD014;  // return 0 bytes
-static const uint16_t SEN5X_CMD_GET_SERIAL_NUMBER = 0xD033;
-static const uint16_t SEN5X_CMD_NOX_ALGORITHM_TUNING = 0x60E1;
-static const uint16_t SEN5X_CMD_READ_MEASUREMENT = 0x0300; //SEN66 only!
-static const uint16_t SEN5X_CMD_RHT_ACCELERATION_MODE = 0x60F7; //not for SEN66 => 0x6100? but seems to read? remove...
-static const uint16_t SEN5X_CMD_START_CLEANING_FAN = 0x5607;
-static const uint16_t SEN5X_CMD_START_MEASUREMENTS = 0x0021;
-static const uint16_t SEN5X_CMD_START_MEASUREMENTS_RHT_ONLY = 0x0037; //not used
-static const uint16_t SEN5X_CMD_STOP_MEASUREMENTS = 0x3f86;
-static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
-static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
-static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
-static const uint16_t SEN6X_CMD_RESET = 0xD304;
+// === Commands (SEN6x Datasheet 4.8) ===
+static const uint16_t CMD_START_MEAS                 = 0x0021; // 4.8.1
+static const uint16_t CMD_STOP_MEAS                  = 0x0104; // 4.8.3 (SEN6x)
+static const uint16_t CMD_GET_DATA_READY             = 0x0202; // 4.8.5
 
-void SEN5XComponent::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up sen6x...");
+// SEN66 measured/raw
+static const uint16_t CMD_READ_MEAS_SEN66            = 0x0300; // 4.8.10
+static const uint16_t CMD_READ_RAW_SEN66             = 0x0405; // 4.8.14
 
-  // the sensor needs 1000 ms to enter the idle state
-  this->set_timeout(2000, [this]() {
+// Number concentration
+static const uint16_t CMD_READ_NUM_CONC              = 0x0316; // 4.8.15
 
-    // Check if measurement is ready before reading the value
-    if (!this->write_command(SEN5X_CMD_GET_DATA_READY_STATUS)) {
-      ESP_LOGE(TAG, "Failed to write data ready status command");
-      this->mark_failed();
-      return;
-    }
+// Identification / status
+static const uint16_t CMD_GET_PRODUCT_NAME           = 0xD014; // 4.8.18
+static const uint16_t CMD_GET_SERIAL_STRING          = 0xD033; // 4.8.19
+static const uint16_t CMD_READ_DEVICE_STATUS         = 0xD206; // 4.8.21
+static const uint16_t CMD_READ_AND_CLEAR_STATUS      = 0xD210; // 4.8.23
+static const uint16_t CMD_GET_VERSION                = 0xD100; // 4.8.24
+static const uint16_t CMD_RESET                      = 0xD304; // 4.8.25
 
-    uint16_t raw_read_status;
-    if (!this->read_data(raw_read_status)) {
-      ESP_LOGE(TAG, "Failed to read data ready status");
-      this->mark_failed();
-      return;
-    }
+// Maintenance
+static const uint16_t CMD_START_FAN_CLEANING         = 0x5607; // 4.8.27
+static const uint16_t CMD_SHT_HEATER_ON              = 0x6765; // 4.8.29
+static const uint16_t CMD_SHT_HEATER_MEAS            = 0x6790; // 4.8.30
 
-    uint32_t stop_measurement_delay = 0;
-    // In order to query the device periodic measurement must be ceased => use reset!
-    if (raw_read_status) {
-      ESP_LOGD(TAG, "Sensor has data available, stopping periodic measurement / reset");
-      if (!this->write_command(SEN6X_CMD_RESET)) {
-        ESP_LOGE(TAG, "Failed to stop measurements / reset");
-        this->mark_failed();
-        return;
-      }
-      // According to the SEN5x datasheet the sensor will only respond to other commands after waiting 200 ms after
-      // issuing the stop_periodic_measurement command
-      stop_measurement_delay = 1200;
-    }
-    this->set_timeout(stop_measurement_delay, [this]() {
-      uint16_t raw_serial_number[3];
-      if (!this->get_register(SEN5X_CMD_GET_SERIAL_NUMBER, raw_serial_number, 3, 20)) {
-        ESP_LOGE(TAG, "Failed to read serial number");
-        this->error_code_ = SERIAL_NUMBER_IDENTIFICATION_FAILED;
-        this->mark_failed();
-        return;
-      }
-      this->serial_number_[0] = static_cast<bool>(uint16_t(raw_serial_number[0]) & 0xFF);
-      this->serial_number_[1] = static_cast<uint16_t>(raw_serial_number[0] & 0xFF);
-      this->serial_number_[2] = static_cast<uint16_t>(raw_serial_number[1] >> 8);
-      ESP_LOGD(TAG, "Serial number %02d.%02d.%02d", serial_number_[0], serial_number_[1], serial_number_[2]);
+// ---------------------------------------------------------------------------
 
-      uint16_t raw_product_name[16];
-
-      if (!this->get_register(SEN5X_CMD_GET_PRODUCT_NAME, raw_product_name, 16, 20)) {
-        ESP_LOGE(TAG, "Failed to read product name");
-        this->error_code_ = PRODUCT_NAME_FAILED;
-        this->mark_failed();
-        return;
-      }
-
-      // 2 ASCII bytes are encoded in an int
-      const uint16_t *current_int = raw_product_name;
-      char current_char;
-      uint8_t max = 16;
-      do {
-        // first char
-        current_char = *current_int >> 8;
-        if (current_char) {
-          product_name_.push_back(current_char);
-          // second char
-          current_char = *current_int & 0xFF;
-          if (current_char)
-            product_name_.push_back(current_char);
-        }
-        current_int++;
-      } while (current_char && --max);
-
-      Sen5xType sen6x_type = UNKNOWN;
-      if (product_name_ == "SEN50") {
-        sen6x_type = SEN50;
-      } else {
-        if (product_name_ == "SEN54") {
-          sen6x_type = SEN54;
-        } else {
-          if (product_name_ == "SEN55") {
-            sen6x_type = SEN55;
-          }
-        }
-        if (product_name_ == "SEN66" || product_name_ == "") { // emppty name!
-          ESP_LOGD(TAG, "Productname for real: %s", product_name_.c_str());
-          sen6x_type = SEN55; //for now
-        }
-        ESP_LOGD(TAG, "Productname %s", product_name_.c_str());
-      }
-      if (this->humidity_sensor_ && sen6x_type == SEN50) {
-        ESP_LOGE(TAG, "For Relative humidity a SEN54 OR SEN55 is required. You are using a <%s> sensor",
-                 this->product_name_.c_str());
-        this->humidity_sensor_ = nullptr;  // mark as not used
-      }
-      if (this->temperature_sensor_ && sen6x_type == SEN50) {
-        ESP_LOGE(TAG, "For Temperature a SEN54 OR SEN55 is required. You are using a <%s> sensor",
-                 this->product_name_.c_str());
-        this->temperature_sensor_ = nullptr;  // mark as not used
-      }
-      if (this->voc_sensor_ && sen6x_type == SEN50) {
-        ESP_LOGE(TAG, "For VOC a SEN54 OR SEN55 is required. You are using a <%s> sensor", this->product_name_.c_str());
-        this->voc_sensor_ = nullptr;  // mark as not used
-      }
-      if (this->nox_sensor_ && sen6x_type != SEN55) {
-        ESP_LOGE(TAG, "For NOx a SEN55 is required. You are using a <%s> sensor", this->product_name_.c_str());
-        this->nox_sensor_ = nullptr;  // mark as not used
-      }
-
-      if (!this->get_register(SEN5X_CMD_GET_FIRMWARE_VERSION, this->firmware_version_, 20)) {
-        ESP_LOGE(TAG, "Failed to read firmware version");
-        this->error_code_ = FIRMWARE_FAILED;
-        this->mark_failed();
-        return;
-      }
-      this->firmware_version_ >>= 8;
-      ESP_LOGD(TAG, "Firmware version %d", this->firmware_version_);
-
-      if (this->voc_sensor_ && this->store_baseline_) {
-        uint32_t combined_serial =
-            encode_uint24(this->serial_number_[0], this->serial_number_[1], this->serial_number_[2]);
-        // Hash with compilation time and serial number
-        // This ensures the baseline storage is cleared after OTA
-        // Serial numbers are unique to each sensor, so mulitple sensors can be used without conflict
-        uint32_t hash = fnv1_hash(App.get_compilation_time() + std::to_string(combined_serial));
-        this->pref_ = global_preferences->make_preference<Sen5xBaselines>(hash, true);
-
-        if (this->pref_.load(&this->voc_baselines_storage_)) {
-          ESP_LOGI(TAG, "Loaded VOC baseline state0: 0x%04" PRIX32 ", state1: 0x%04" PRIX32,
-                   this->voc_baselines_storage_.state0, voc_baselines_storage_.state1);
-        }
-
-        // Initialize storage timestamp
-        this->seconds_since_last_store_ = 0;
-
-        if (this->voc_baselines_storage_.state0 > 0 && this->voc_baselines_storage_.state1 > 0) {
-          ESP_LOGI(TAG, "Setting VOC baseline from save state0: 0x%04" PRIX32 ", state1: 0x%04" PRIX32,
-                   this->voc_baselines_storage_.state0, voc_baselines_storage_.state1);
-          uint16_t states[4];
-
-          states[0] = voc_baselines_storage_.state0 >> 16;
-          states[1] = voc_baselines_storage_.state0 & 0xFFFF;
-          states[2] = voc_baselines_storage_.state1 >> 16;
-          states[3] = voc_baselines_storage_.state1 & 0xFFFF;
-
-          if (!this->write_command(SEN5X_CMD_VOC_ALGORITHM_STATE, states, 4)) {
-            ESP_LOGE(TAG, "Failed to set VOC baseline from saved state");
-          }
-        }
-      }
-      if (this->voc_tuning_params_.has_value()) {
-        this->write_tuning_parameters_(SEN5X_CMD_VOC_ALGORITHM_TUNING, this->voc_tuning_params_.value());
-        delay(20);
-      }
-      if (this->nox_tuning_params_.has_value()) {
-        this->write_tuning_parameters_(SEN5X_CMD_NOX_ALGORITHM_TUNING, this->nox_tuning_params_.value());
-        delay(20);
-      }
-
-      if (this->temperature_compensation_.has_value()) {
-        this->write_temperature_compensation_(this->temperature_compensation_.value());
-        delay(20);
-      }
-
-      // Finally start sensor measurements
-      auto cmd = SEN5X_CMD_START_MEASUREMENTS_RHT_ONLY;
-      if (this->pm_1_0_sensor_ || this->pm_2_5_sensor_ || this->pm_4_0_sensor_ || this->pm_10_0_sensor_) {
-        // if any of the gas sensors are active we need a full measurement
-        cmd = SEN5X_CMD_START_MEASUREMENTS;
-      }
-
-      if (!this->write_command(cmd)) {
-        ESP_LOGE(TAG, "Error starting continuous measurements.");
-        this->error_code_ = MEASUREMENT_INIT_FAILED;
-        this->mark_failed();
-        return;
-      }
-      initialized_ = true;
-      ESP_LOGD(TAG, "Sensor initialized");
-    });
-  });
+bool SEN5XComponent::read_words_u16_(uint16_t cmd, uint16_t *buf, uint8_t words, uint16_t exec_time_ms) {
+  if (!this->write_command(cmd)) return false;
+  delay(exec_time_ms);
+  return this->get_register(cmd, buf, words, exec_time_ms);
 }
 
-void SEN5XComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "sen6x:");
-  LOG_I2C_DEVICE(this);
-  if (this->is_failed()) {
-    switch (this->error_code_) {
-      case COMMUNICATION_FAILED:
-        ESP_LOGW(TAG, "Communication failed! Is the sensor connected?");
-        break;
-      case MEASUREMENT_INIT_FAILED:
-        ESP_LOGW(TAG, "Measurement Initialization failed!");
-        break;
-      case SERIAL_NUMBER_IDENTIFICATION_FAILED:
-        ESP_LOGW(TAG, "Unable to read sensor serial id");
-        break;
-      case PRODUCT_NAME_FAILED:
-        ESP_LOGW(TAG, "Unable to read product name");
-        break;
-      case FIRMWARE_FAILED:
-        ESP_LOGW(TAG, "Unable to read sensor firmware version");
-        break;
-      default:
-        ESP_LOGW(TAG, "Unknown setup error!");
-        break;
-    }
-  }
-  ESP_LOGCONFIG(TAG, "  Productname: %s", this->product_name_.c_str());
-  ESP_LOGCONFIG(TAG, "  Firmware version: %d", this->firmware_version_);
-  ESP_LOGCONFIG(TAG, "  Serial number %02d.%02d.%02d", serial_number_[0], serial_number_[1], serial_number_[2]);
-
-  LOG_UPDATE_INTERVAL(this);
-  LOG_SENSOR("  ", "PM  1.0", this->pm_1_0_sensor_);
-  LOG_SENSOR("  ", "PM  2.5", this->pm_2_5_sensor_);
-  LOG_SENSOR("  ", "PM  4.0", this->pm_4_0_sensor_);
-  LOG_SENSOR("  ", "PM 10.0", this->pm_10_0_sensor_);
-  LOG_SENSOR("  ", "Temperature", this->temperature_sensor_);
-  LOG_SENSOR("  ", "Humidity", this->humidity_sensor_);
-  LOG_SENSOR("  ", "VOC", this->voc_sensor_);  // SEN54 and SEN55 only
-  LOG_SENSOR("  ", "NOx", this->nox_sensor_);  // SEN55 only
-  LOG_SENSOR("  ", "CO2", this->co2_sensor_);  // SEN66
-}
-
-void SEN5XComponent::update() {
-  if (!initialized_) {
-    return;
-  }
-  // Store baselines after defined interval or if the difference between current and stored baseline becomes too
-  // much
-  if (this->store_baseline_ && this->seconds_since_last_store_ > SHORTEST_BASELINE_STORE_INTERVAL) {
-    if (this->write_command(SEN5X_CMD_VOC_ALGORITHM_STATE)) {
-      // run it a bit later to avoid adding a delay here
-      this->set_timeout(550, [this]() {
-        uint16_t states[4];
-        if (this->read_data(states, 4)) {
-          uint32_t state0 = states[0] << 16 | states[1];
-          uint32_t state1 = states[2] << 16 | states[3];
-          if ((uint32_t) std::abs(static_cast<int32_t>(this->voc_baselines_storage_.state0 - state0)) >
-                  MAXIMUM_STORAGE_DIFF ||
-              (uint32_t) std::abs(static_cast<int32_t>(this->voc_baselines_storage_.state1 - state1)) >
-                  MAXIMUM_STORAGE_DIFF) {
-            this->seconds_since_last_store_ = 0;
-            this->voc_baselines_storage_.state0 = state0;
-            this->voc_baselines_storage_.state1 = state1;
-
-            if (this->pref_.save(&this->voc_baselines_storage_)) {
-              ESP_LOGI(TAG, "Stored VOC baseline state0: 0x%04" PRIX32 " ,state1: 0x%04" PRIX32,
-                       this->voc_baselines_storage_.state0, voc_baselines_storage_.state1);
-            } else {
-              ESP_LOGW(TAG, "Could not store VOC baselines");
-            }
-          }
-        }
-      });
-    }
-  }
-
-  if (!this->write_command(SEN5X_CMD_READ_MEASUREMENT)) {
-    this->status_set_warning();
-    ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
-    return;
-  }
-  this->set_timeout(20, [this]() {
-    uint16_t measurements[9];
-
-    if (!this->read_data(measurements, 9)) {
-      this->status_set_warning();
-      ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
-      return;
-    }
-    float pm_1_0 = measurements[0] / 10.0;
-    if (measurements[0] == 0xFFFF)
-      pm_1_0 = NAN;
-    float pm_2_5 = measurements[1] / 10.0;
-    if (measurements[1] == 0xFFFF)
-      pm_2_5 = NAN;
-    float pm_4_0 = measurements[2] / 10.0;
-    if (measurements[2] == 0xFFFF)
-      pm_4_0 = NAN;
-    float pm_10_0 = measurements[3] / 10.0;
-    if (measurements[3] == 0xFFFF)
-      pm_10_0 = NAN;
-    float humidity = measurements[4] / 100.0;
-    if (measurements[4] == 0xFFFF)
-      humidity = NAN;
-    float temperature = (int16_t) measurements[5] / 200.0;
-    if (measurements[5] == 0xFFFF)
-      temperature = NAN;
-    float voc = measurements[6] / 10.0;
-    if (measurements[6] == 0x7FFF)
-      voc = NAN;
-    float nox = measurements[7] / 10.0;
-    if (measurements[7] == 0x7FFF)
-      nox = NAN;
-    float co2 = measurements[8];
-    if (measurements[8] == 0xFFFF)
-      co2 = NAN;
-
-
-    if (this->pm_1_0_sensor_ != nullptr)
-      this->pm_1_0_sensor_->publish_state(pm_1_0);
-    if (this->pm_2_5_sensor_ != nullptr)
-      this->pm_2_5_sensor_->publish_state(pm_2_5);
-    if (this->pm_4_0_sensor_ != nullptr)
-      this->pm_4_0_sensor_->publish_state(pm_4_0);
-    if (this->pm_10_0_sensor_ != nullptr)
-      this->pm_10_0_sensor_->publish_state(pm_10_0);
-    if (this->temperature_sensor_ != nullptr)
-      this->temperature_sensor_->publish_state(temperature);
-    if (this->humidity_sensor_ != nullptr)
-      this->humidity_sensor_->publish_state(humidity);
-    if (this->voc_sensor_ != nullptr)
-      this->voc_sensor_->publish_state(voc);
-    if (this->nox_sensor_ != nullptr)
-      this->nox_sensor_->publish_state(nox);
-    if (this->co2_sensor_ != nullptr)
-      this->co2_sensor_->publish_state(co2);
-    this->status_clear_warning();
-  });
-}
-
-bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning) {
-  uint16_t params[6];
-  params[0] = tuning.index_offset;
-  params[1] = tuning.learning_time_offset_hours;
-  params[2] = tuning.learning_time_gain_hours;
-  params[3] = tuning.gating_max_duration_minutes;
-  params[4] = tuning.std_initial;
-  params[5] = tuning.gain_factor;
-  auto result = write_command(i2c_command, params, 6);
-  if (!result) {
-    ESP_LOGE(TAG, "set tuning parameters failed. i2c command=%0xX, err=%d", i2c_command, this->last_error_);
-  }
-  return result;
-}
-
-bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
-  uint16_t params[3];
-  params[0] = compensation.offset;
-  params[1] = compensation.normalized_offset_slope;
-  params[2] = compensation.time_constant;
-  if (!write_command(SEN5X_CMD_TEMPERATURE_COMPENSATION, params, 3)) {
-    ESP_LOGE(TAG, "set temperature_compensation failed. Err=%d", this->last_error_);
-    return false;
+bool SEN5XComponent::read_string32_(uint16_t cmd, std::string &out, uint8_t words, uint16_t exec_time_ms) {
+  uint16_t tmp[32] = {0};
+  if (!this->read_words_u16_(cmd, tmp, words, exec_time_ms)) return false;
+  out.clear();
+  for (uint8_t i = 0; i < words; i++) {
+    char hi = char(tmp[i] >> 8);
+    char lo = char(tmp[i] & 0xFF);
+    if (hi) out.push_back(hi); else break;
+    if (lo) out.push_back(lo); else break;
   }
   return true;
 }
 
-bool SEN5XComponent::start_fan_cleaning() {
-  if (!write_command(SEN5X_CMD_START_CLEANING_FAN)) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "write error start fan (%d)", this->last_error_);
-    return false;
-  } else {
-    ESP_LOGD(TAG, "Fan auto clean started");
+void SEN5XComponent::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up SEN6x (SEN66)...");
+  // Warte bis Idle (Datenblatt: ~100ms)
+  this->set_timeout(200, [this]() {
+    // Produktname & Serial
+    std::string prod;
+    if (this->get_product_name(prod)) {
+      this->product_name_ = prod;
+      ESP_LOGI(TAG, "Product: %s", prod.c_str());
+      if (this->product_text_) this->product_text_->publish_state(prod);
+    } else {
+      ESP_LOGW(TAG, "Product name read failed");
+    }
+    std::string serial;
+    if (this->get_serial_number_string(serial)) {
+      ESP_LOGI(TAG, "Serial: %s", serial.c_str());
+      if (this->serial_text_) this->serial_text_->publish_state(serial);
+    }
+
+    // Firmware Version
+    uint8_t maj=0, min=0;
+    if (this->get_version(maj, min)) {
+      char buf[16]; snprintf(buf, sizeof(buf), "%u.%u", maj, min);
+      ESP_LOGI(TAG, "FW Version: %s", buf);
+      if (this->version_text_) this->version_text_->publish_state(buf);
+    }
+
+    initialized_ = true;
+  });
+}
+
+void SEN5XComponent::dump_config() {
+  ESP_LOGCONFIG(TAG, "sen6x (SEN66):");
+  LOG_I2C_DEVICE(this);
+  if (this->is_failed()) {
+    switch (this->error_code_) {
+      case COMMUNICATION_FAILED: ESP_LOGW(TAG, "Communication failed!"); break;
+      case MEASUREMENT_INIT_FAILED: ESP_LOGW(TAG, "Measurement init failed!"); break;
+      case PRODUCT_NAME_FAILED: ESP_LOGW(TAG, "Product name failed!"); break;
+      case FIRMWARE_FAILED: ESP_LOGW(TAG, "Firmware version failed!"); break;
+      case SERIAL_NUMBER_IDENTIFICATION_FAILED: ESP_LOGW(TAG, "Serial read failed!"); break;
+      default: break;
+    }
   }
+}
+
+void SEN5XComponent::update() {
+  if (!initialized_) return;
+
+  // READ status (TextSensor Hex)
+  uint32_t st = 0;
+  if (this->read_device_status(st) && this->status_text_) {
+    char hex[11];
+    snprintf(hex, sizeof(hex), "0x%08" PRIX32, st);
+    this->status_text_->publish_state(hex);
+  }
+
+  // Get Data Ready -> Measured + NumberConc + Raw
+  bool ready=false;
+  if (this->get_data_ready(ready) && ready) {
+    // Measured SEN66
+    uint16_t pm1=0, pm25=0, pm4=0, pm10=0;
+    int16_t rh_x100=0, t_x200=0;
+    uint16_t voc_idx=0, nox_idx=0;
+    int16_t co2_ppm=0;
+    if (this->read_measured_values_sen66(pm1, pm25, pm4, pm10, rh_x100, t_x200, voc_idx, nox_idx, co2_ppm)) {
+      if (pm_1_0_sensor_) pm_1_0_sensor_->publish_state(pm1 / 1.0f);
+      if (pm_2_5_sensor_) pm_2_5_sensor_->publish_state(pm25 / 1.0f);
+      if (pm_4_0_sensor_) pm_4_0_sensor_->publish_state(pm4 / 1.0f);
+      if (pm_10_0_sensor_) pm_10_0_sensor_->publish_state(pm10 / 1.0f);
+      if (humidity_sensor_) humidity_sensor_->publish_state(rh_x100 / 100.0f);
+      if (temperature_sensor_) temperature_sensor_->publish_state(t_x200 / 200.0f);
+      if (voc_sensor_) voc_sensor_->publish_state(voc_idx);
+      if (nox_sensor_) nox_sensor_->publish_state(nox_idx);
+      if (co2_sensor_) co2_sensor_->publish_state(co2_ppm);
+    }
+
+    // Number concentration
+    uint16_t nc03=0,nc05=0,nc10=0,nc25=0,nc40=0,nc100=0;
+    if (this->read_number_concentration(nc03, nc05, nc10, nc25, nc40, nc100)) {
+      if (nc_03_sensor_) nc_03_sensor_->publish_state(nc03 / 10.0f);
+      if (nc_05_sensor_) nc_05_sensor_->publish_state(nc05 / 10.0f);
+      if (nc_10_sensor_) nc_10_sensor_->publish_state(nc10 / 10.0f);
+      if (nc_25_sensor_) nc_25_sensor_->publish_state(nc25 / 10.0f);
+      if (nc_40_sensor_) nc_40_sensor_->publish_state(nc40 / 10.0f);
+      if (nc_100_sensor_) nc_100_sensor_->publish_state(nc100 / 10.0f);
+    }
+
+    // Raw values
+    uint16_t sraw_voc=0, sraw_nox=0, co2_raw=0;
+    if (this->read_raw_values_sen66(rh_x100, t_x200, sraw_voc, sraw_nox, co2_raw)) {
+      if (raw_rh_x100_sensor_) raw_rh_x100_sensor_->publish_state((float) rh_x100);
+      if (raw_t_x200_sensor_) raw_t_x200_sensor_->publish_state((float) t_x200);
+      if (raw_sraw_voc_sensor_) raw_sraw_voc_sensor_->publish_state((float) sraw_voc);
+      if (raw_sraw_nox_sensor_) raw_sraw_nox_sensor_->publish_state((float) sraw_nox);
+      if (raw_co2_sensor_) raw_co2_sensor_->publish_state((float) co2_raw);
+    }
+  }
+}
+
+// ---------------- SEND / READ impl ----------------
+
+bool SEN5XComponent::start_continuous_measurement() { return this->write_command(CMD_START_MEAS); }
+bool SEN5XComponent::stop_measurement()              { return this->write_command(CMD_STOP_MEAS); }
+bool SEN5XComponent::device_reset()                  { if (!this->write_command(CMD_RESET)) return false; delay(1200); return true; }
+bool SEN5XComponent::start_fan_cleaning()            { return this->write_command(CMD_START_FAN_CLEANING); }
+bool SEN5XComponent::activate_sht_heater()           { return this->write_command(CMD_SHT_HEATER_ON); }
+
+bool SEN5XComponent::get_data_ready(bool &ready) {
+  uint16_t w[1];
+  if (!this->read_words_u16_(CMD_GET_DATA_READY, w, 1, 20)) return false;
+  ready = (uint8_t)(w[0] & 0xFF);
+  return true;
+}
+
+bool SEN5XComponent::read_measured_values_sen66(uint16_t &pm1, uint16_t &pm25, uint16_t &pm4, uint16_t &pm10,
+                                                int16_t &rh_x100, int16_t &t_x200,
+                                                uint16_t &voc_idx, uint16_t &nox_idx, int16_t &co2_ppm) {
+  uint16_t b[10];
+  if (!this->read_words_u16_(CMD_READ_MEAS_SEN66, b, 10, 20)) return false;
+  pm1=b[0]; pm25=b[1]; pm4=b[2]; pm10=b[3];
+  rh_x100=(int16_t)b[4]; t_x200=(int16_t)b[5];
+  voc_idx=b[6]; nox_idx=b[7]; co2_ppm=(int16_t)b[8];
+  return true;
+}
+
+bool SEN5XComponent::read_raw_values_sen66(int16_t &rh_x100, int16_t &t_x200,
+                                           uint16_t &sraw_voc, uint16_t &sraw_nox, uint16_t &co2_ppm) {
+  uint16_t b[5];
+  if (!this->read_words_u16_(CMD_READ_RAW_SEN66, b, 5, 20)) return false;
+  rh_x100=(int16_t)b[0]; t_x200=(int16_t)b[1]; sraw_voc=b[2]; sraw_nox=b[3]; co2_ppm=b[4];
+  return true;
+}
+
+bool SEN5XComponent::read_number_concentration(uint16_t &nc03_x10, uint16_t &nc05_x10,
+                                               uint16_t &nc10_x10, uint16_t &nc25_x10,
+                                               uint16_t &nc40_x10, uint16_t &nc100_x10) {
+  uint16_t b[6];
+  if (!this->read_words_u16_(CMD_READ_NUM_CONC, b, 6, 20)) return false;
+  nc03_x10=b[0]; nc05_x10=b[1]; nc10_x10=b[2]; nc25_x10=b[3]; nc40_x10=b[4]; nc100_x10=b[5];
+  return true;
+}
+
+bool SEN5XComponent::get_product_name(std::string &name) { return this->read_string32_(CMD_GET_PRODUCT_NAME, name, 16, 20); }
+bool SEN5XComponent::get_serial_number_string(std::string &serial) { return this->read_string32_(CMD_GET_SERIAL_STRING, serial, 16, 20); }
+
+bool SEN5XComponent::read_device_status(uint32_t &status) {
+  uint16_t w[2];
+  if (!this->read_words_u16_(CMD_READ_DEVICE_STATUS, w, 2, 20)) return false;
+  status = (uint32_t(w[0]) << 16) | w[1];
+  return true;
+}
+bool SEN5XComponent::read_and_clear_device_status(uint32_t &status) {
+  uint16_t w[2];
+  if (!this->read_words_u16_(CMD_READ_AND_CLEAR_STATUS, w, 2, 20)) return false;
+  status = (uint32_t(w[0]) << 16) | w[1];
+  return true;
+}
+bool SEN5XComponent::get_version(uint8_t &fw_major, uint8_t &fw_minor) {
+  uint16_t w[1];
+  if (!this->read_words_u16_(CMD_GET_VERSION, w, 1, 20)) return false;
+  fw_major = uint8_t(w[0] >> 8);
+  fw_minor = uint8_t(w[0] & 0xFF);
+  return true;
+}
+bool SEN5XComponent::get_sht_heater_measurements(int16_t &rh_x100, int16_t &t_x200) {
+  uint16_t w[2];
+  if (!this->read_words_u16_(CMD_SHT_HEATER_MEAS, w, 2, 20)) return false;
+  rh_x100 = (int16_t)w[0]; t_x200=(int16_t)w[1];
   return true;
 }
 
