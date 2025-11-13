@@ -194,11 +194,6 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_PRODUCT_TEXT): text_sensor.text_sensor_schema(),
 
             # Buttons (SEND)
-            cv.Optional("start_measurement"): button.button_schema(icon=ICON_POWER),
-            cv.Optional("stop_measurement"): button.button_schema(icon=ICON_POWER),
-            cv.Optional("fan_cleaning"): button.button_schema(icon=ICON_FAN),
-            cv.Optional("heater_on"): button.button_schema(icon=ICON_POWER),
-            cv.Optional("reset"): button.button_schema(icon=ICON_RESTART),
 
             cv.Optional(CONF_STORE_BASELINE, default=True): cv.boolean,
             cv.Optional(CONF_TEMPERATURE_COMPENSATION): cv.Schema({
