@@ -7,6 +7,49 @@
 namespace esphome {
 namespace sen6x {
 
+void SEN6xComponent::setup() {
+  ESP_LOGI(TAG, "Initializing SEN6x...");
+
+  // --- Geräteinformationen auslesen ---
+  uint16_t fw_words[1];
+  uint8_t raw_fw[3];
+  // Firmware version (command 0xD100)
+  if (this->read_bytes_(0xD100, raw_fw, 3, 20)) {
+    this->firmware_version_ = (raw_fw[0] << 8) | raw_fw[1];
+    ESP_LOGI(TAG, "Firmware version: %u", this->firmware_version_);
+  } else {
+    ESP_LOGW(TAG, "Unable to read sensor firmware version");
+  }
+
+  // Product name (0xD014) – 16 bytes ASCII + CRC
+  uint8_t name_buf[18] = {0};
+  if (this->read_bytes_(0xD014, name_buf, sizeof(name_buf), 20)) {
+    char pname[17];
+    memcpy(pname, name_buf, 16);
+    pname[16] = '\0';
+    this->product_name_ = std::string(pname);
+    ESP_LOGI(TAG, "Product name: %s", this->product_name_.c_str());
+  } else {
+    ESP_LOGW(TAG, "Unable to read product name");
+  }
+
+  // Serial number (0xD033) – 3 bytes + CRC
+  uint8_t sn_buf[6] = {0};
+  if (this->read_bytes_(0xD033, sn_buf, sizeof(sn_buf), 20)) {
+    this->serial_number_[0] = sn_buf[0];
+    this->serial_number_[1] = sn_buf[1];
+    this->serial_number_[2] = sn_buf[2];
+    ESP_LOGI(TAG, "Serial number %02d.%02d.%02d",
+             serial_number_[0], serial_number_[1], serial_number_[2]);
+  } else {
+    ESP_LOGW(TAG, "Unable to read sensor serial number");
+  }
+
+  // --- danach normales Setup weiterführen ---
+  start_measurement();
+}
+
+
 static const char *const TAG = "sen6x";
 
 //static const uint16_t SEN5X_CMD_AUTO_CLEANING_INTERVAL = 0x8004; //not used with Sen6X
