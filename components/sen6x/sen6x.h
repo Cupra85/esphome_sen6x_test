@@ -99,6 +99,15 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   }
   bool start_fan_cleaning();
 
+
+  std::string get_product_name() const { return product_name_; }
+  uint16_t get_firmware_version() const { return firmware_version_; }
+  std::string get_serial_string() const {
+    char buf[32];
+    sprintf(buf, "%02d.%02d.%02d", serial_number_[0], serial_number_[1], serial_number_[2]);
+    return std::string(buf);
+  }
+
  protected:
   bool write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning);
   bool write_temperature_compensation_(const TemperatureCompensation &compensation);
