@@ -1,9 +1,0 @@
-{
-  "domain": "sen6x",
-  "name": "Sensirion SEN6x",
-  "version": "1.0",
-  "requirements": [],
-  "codeowners": ["@deinname"],
-  "dependencies": ["i2c", "sensor", "text_sensor", "button"],
-  "homeassistant": "2024.0.0"
-}
