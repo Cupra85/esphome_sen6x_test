@@ -380,6 +380,26 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
   return true;
 }
 
+bool SEN5XComponent::start_measurement() {
+  if (!write_command(0x0021)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "write error start measurement (%d)", this->last_error_);
+    return false;
+  }
+  ESP_LOGD(TAG, "Measurement started");
+  return true;
+}
+
+bool SEN5XComponent::stop_measurement() {
+  if (!write_command(0x0104)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "write error stop measurement (%d)", this->last_error_);
+    return false;
+  }
+  ESP_LOGD(TAG, "Measurement stopped");
+  return true;
+}
+
 bool SEN5XComponent::start_fan_cleaning() {
   if (!write_command(SEN5X_CMD_START_CLEANING_FAN)) {
     this->status_set_warning();
