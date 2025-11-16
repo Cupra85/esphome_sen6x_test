@@ -381,7 +381,8 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
 }
 
 bool SEN5XComponent::start_measurement() {
-  if (!write_command(0x0021)) {
+  // SEN6x Start Continuous Measurement (0x0021)
+  if (!this->write_command(0x0021)) {
     this->status_set_warning();
     ESP_LOGE(TAG, "write error start measurement (%d)", this->last_error_);
     return false;
@@ -391,7 +392,8 @@ bool SEN5XComponent::start_measurement() {
 }
 
 bool SEN5XComponent::stop_measurement() {
-  if (!write_command(0x0104)) {
+  // SEN6x Stop Measurement (0x0104)
+  if (!this->write_command(0x0104)) {
     this->status_set_warning();
     ESP_LOGE(TAG, "write error stop measurement (%d)", this->last_error_);
     return false;
