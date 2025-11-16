@@ -102,6 +102,7 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool start_fan_cleaning();
 
   bool read_device_status(uint32_t &status);
+  bool read_and_clear_device_status(uint32_t &status);
   uint32_t last_status_{0};
 
   float get_fan_speed_warning() const { return (last_status_ >> 21) & 0x01; }
