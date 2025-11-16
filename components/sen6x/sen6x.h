@@ -97,6 +97,8 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
     temp_comp.time_constant = time_constant;
     temperature_compensation_ = temp_comp;
   }
+  bool start_measurement();
+  bool stop_measurement();
   bool start_fan_cleaning();
 
 
