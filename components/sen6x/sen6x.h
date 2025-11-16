@@ -101,9 +101,6 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool stop_measurement();
   bool start_fan_cleaning();
 
-  bool read_measured_raw_values(int16_t *humidity, int16_t *temperature,
-                              int16_t *voc_raw, int16_t *nox_raw,
-                              uint16_t *co2_raw);
 
   std::string get_product_name() const { return product_name_; }
   uint16_t get_firmware_version() const { return firmware_version_; }
