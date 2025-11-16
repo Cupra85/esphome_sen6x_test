@@ -263,7 +263,7 @@ async def sen6x_stop_to_code(config, action_id, template_arg, args):
 
 # --- Fan Cleaning ---
 @automation.register_action(
-    "sen6x.start_fan_autoclean", StartFanAction, SEN5X_ACTION_SCHEMA
+    "sen6x.start_fan_cleaning", StartFanAction, SEN5X_ACTION_SCHEMA
 )
 async def sen54_fan_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
