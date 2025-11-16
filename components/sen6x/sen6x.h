@@ -100,10 +100,6 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool start_measurement();
   bool stop_measurement();
   bool start_fan_cleaning();
-  bool read_ambient_pressure(uint16_t &pressure_hpa);
-  bool read_sensor_altitude(uint16_t &altitude_m);
-  bool read_bytes16(uint16_t command, uint8_t *data, size_t len);
-
 
   std::string get_product_name() const { return product_name_; }
   uint16_t get_firmware_version() const { return firmware_version_; }
