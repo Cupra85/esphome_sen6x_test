@@ -25,8 +25,6 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
-static const uint16_t SEN5X_CMD_READ_DEVICE_STATUS = 0xD206;
-static const uint16_t SEN5X_CMD_READ_CLEAR_DEVICE_STATUS = 0xD210;
 
 void SEN5XComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen6x...");
@@ -411,38 +409,6 @@ bool SEN5XComponent::start_fan_cleaning() {
     return false;
   } else {
     ESP_LOGD(TAG, "Fan auto clean started");
-  }
-  return true;
-}
-
-bool SEN5XComponent::read_device_status(uint32_t &status) {
-  // Read Device Status (0xD206)
-  uint8_t raw[4] = {0};
-
-  if (!this->read_bytes(0xD206, raw, sizeof(raw))) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "read error device status (0xD206), last_error: %d", this->last_error_);
-    return false;
-  } else {
-    status = ((uint32_t)raw[0] << 24) | ((uint32_t)raw[1] << 16) | ((uint32_t)raw[2] << 8) | (uint32_t)raw[3];
-    this->last_status_ = status;
-    ESP_LOGD(TAG, "Device status read OK (0x%08lX)", status);
-  }
-  return true;
-}
-
-bool SEN5XComponent::read_and_clear_device_status(uint32_t &status) {
-  // Read and Clear Device Status (0xD210)
-  uint8_t raw[4] = {0};
-
-  if (!this->read_bytes(0xD210, raw, sizeof(raw))) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "read error device status (clear) (0xD210), last_error: %d", this->last_error_);
-    return false;
-  } else {
-    status = ((uint32_t)raw[0] << 24) | ((uint32_t)raw[1] << 16) | ((uint32_t)raw[2] << 8) | (uint32_t)raw[3];
-    this->last_status_ = status;
-    ESP_LOGD(TAG, "Device status (read & cleared) OK (0x%08lX)", status);
   }
   return true;
 }
