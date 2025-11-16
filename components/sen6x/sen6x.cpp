@@ -250,6 +250,8 @@ void SEN5XComponent::dump_config() {
   LOG_SENSOR("  ", "VOC", this->voc_sensor_);  // SEN54 and SEN55 only
   LOG_SENSOR("  ", "NOx", this->nox_sensor_);  // SEN55 only
   LOG_SENSOR("  ", "CO2", this->co2_sensor_);  // SEN66
+  LOG_SENSOR("  ", "Ambient Pressure", this->ambient_pressure_);  // SEN66
+  LOG_SENSOR("  ", "Sensor Altitude", this->sensor_altitude_);  // SEN66
 }
 
 void SEN5XComponent::update() {
@@ -351,6 +353,52 @@ void SEN5XComponent::update() {
       this->nox_sensor_->publish_state(nox);
     if (this->co2_sensor_ != nullptr)
       this->co2_sensor_->publish_state(co2);
+    this->status_clear_warning();
+  });
+  ###########
+  if (!this->write_command(SEN6X_CMD_GET_AMBIENT_PRESSURE)) {
+    this->status_set_warning();
+    ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
+    return;
+  }
+  this->set_timeout(20, [this]() {
+    uint16_t measurements[9];
+
+    if (!this->read_data(measurements, 9)) {
+      this->status_set_warning();
+      ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
+      return;
+    }
+    float ambient pressure = measurements[0] / 0.0;
+    if (measurements[0] == 0xFFFF)
+      ambient pressure = NAN;
+    
+
+    if (this->ambient_pressure_ != nullptr)
+      this->ambient_pressure_->publish_state(ambient_pressure);
+    this->status_clear_warning();
+  });
+  #################################
+    if (!this->write_command(SEN6X_CMD_GET_SENSOR_ALTITUDE)) {
+    this->status_set_warning();
+    ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
+    return;
+  }
+  this->set_timeout(20, [this]() {
+    uint16_t measurements[9];
+
+    if (!this->read_data(measurements, 9)) {
+      this->status_set_warning();
+      ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
+      return;
+    }
+    float sensor altitude = measurements[0] / 0.0;
+    if (measurements[0] == 0xFFFF)
+      ambient pressure = NAN;
+    
+
+    if (this->sensor_altitude_ != nullptr)
+      this->sensor_altitude_->publish_state(ambient_pressure);
     this->status_clear_warning();
   });
 }
