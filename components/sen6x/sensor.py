@@ -60,6 +60,8 @@ CONF_CO2 = "co2"
 
 
 # Actions
+StartMeasurementAction = sen6x_ns.class_("StartMeasurementAction", automation.Action)
+StopMeasurementAction = sen6x_ns.class_("StopMeasurementAction", automation.Action)
 StartFanAction = sen6x_ns.class_("StartFanAction", automation.Action)
 
 
