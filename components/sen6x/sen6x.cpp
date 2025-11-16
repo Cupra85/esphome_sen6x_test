@@ -419,7 +419,7 @@ bool SEN5XComponent::read_device_status(uint32_t &status) {
   // Read Device Status (0xD206)
   uint8_t raw[4] = {0};
 
-  if (!this->read_bytes_(0xD206, raw, sizeof(raw))) {
+  if (!this->read_bytes(0xD206, raw, sizeof(raw))) {
     this->status_set_warning();
     ESP_LOGE(TAG, "read error device status (0xD206), last_error: %d", this->last_error_);
     return false;
@@ -435,7 +435,7 @@ bool SEN5XComponent::read_and_clear_device_status(uint32_t &status) {
   // Read and Clear Device Status (0xD210)
   uint8_t raw[4] = {0};
 
-  if (!this->read_bytes_(0xD210, raw, sizeof(raw))) {
+  if (!this->read_bytes(0xD210, raw, sizeof(raw))) {
     this->status_set_warning();
     ESP_LOGE(TAG, "read error device status (clear) (0xD210), last_error: %d", this->last_error_);
     return false;
