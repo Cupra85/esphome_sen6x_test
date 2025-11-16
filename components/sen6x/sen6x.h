@@ -101,18 +101,6 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool stop_measurement();
   bool start_fan_cleaning();
 
-  bool read_device_status(uint32_t &status);
-  bool read_and_clear_device_status(uint32_t &status);
-  uint32_t last_status_{0};
-
-  float get_fan_speed_warning() const { return (last_status_ >> 21) & 0x01; }
-  float get_fan_error() const { return (last_status_ >> 5) & 0x01; }
-  float get_pm_error() const { return (last_status_ >> 11) & 0x01; }
-  float get_gas_error() const { return (last_status_ >> 7) & 0x01; }
-  float get_rht_error() const { return (last_status_ >> 6) & 0x01; }
-  float get_co2_error() const { return (last_status_ >> 9) & 0x01; }
-  float get_hcho_error() const { return (last_status_ >> 10) & 0x01; }
-
 
   std::string get_product_name() const { return product_name_; }
   uint16_t get_firmware_version() const { return firmware_version_; }
