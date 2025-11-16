@@ -25,7 +25,6 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
-static const uint16_t SEN5X_CMD_READ_RAW_VALUES   = 0x0405;
 
 void SEN5XComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen6x...");
@@ -368,37 +367,6 @@ bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTun
   }
   return result;
 }
-
-bool SEN5XComponent::read_measured_raw_values(int16_t *humidity, int16_t *temperature,
-                                              int16_t *voc_raw, int16_t *nox_raw,
-                                              uint16_t *co2_raw) {
-  uint8_t raw[15] = {0};  // 5 Werte * (2 Byte + 1 CRC) = 15 Bytes laut Sensirion-Datenblatt
-
-  if (!this->read_bytes(SEN5X_CMD_READ_RAW_VALUES, raw, sizeof(raw))) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "Read Measured Raw Values (0x0405) failed, err=%d", this->last_error_);
-    return false;
-  }
-
-  // Hilfsfunktion: extrahiere 16-Bit-Wort aus Bytes (ohne CRC)
-  auto parse_word = [&](size_t i) -> uint16_t {
-    return (uint16_t(raw[i]) << 8) | raw[i + 1];
-  };
-
-  *humidity    = (int16_t)parse_word(0);
-  *temperature = (int16_t)parse_word(3);
-  *voc_raw     = (int16_t)parse_word(6);
-  *nox_raw     = (int16_t)parse_word(9);
-  *co2_raw     = parse_word(12);
-
-  ESP_LOGD(TAG,
-           "Raw Values: RH=%.2f%%, T=%.2f°C, VOCraw=%.1f, NOxraw=%.1f, CO2=%u ppm",
-           *humidity / 100.0f, *temperature / 200.0f,
-           *voc_raw / 10.0f, *nox_raw / 10.0f, *co2_raw);
-
-  return true;
-}
-
 
 bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
   uint16_t params[3];
