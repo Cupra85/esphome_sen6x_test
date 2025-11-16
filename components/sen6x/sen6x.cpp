@@ -386,7 +386,8 @@ bool SEN5XComponent::start_measurement() {
     ESP_LOGE(TAG, "write error start measurement (%d)", this->last_error_);
     return false;
   } else {
-  ESP_LOGD(TAG, "Measurement started");
+    ESP_LOGD(TAG, "Measurement started");
+  }
   return true;
 }
 
@@ -396,7 +397,8 @@ bool SEN5XComponent::stop_measurement() {
     ESP_LOGE(TAG, "write error stop measurement (%d)", this->last_error_);
     return false;
   } else {
-  ESP_LOGD(TAG, "Measurement stopped");
+    ESP_LOGD(TAG, "Measurement stopped");
+  }
   return true;
 }
 
