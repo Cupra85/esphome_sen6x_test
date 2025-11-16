@@ -370,28 +370,35 @@ bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTun
   return result;
 }
 
+bool SEN5XComponent::read_bytes16(uint16_t command, uint8_t *data, size_t len) {
+  uint8_t cmd_buf[2] = {static_cast<uint8_t>(command >> 8), static_cast<uint8_t>(command & 0xFF)};
+  if (this->write(cmd_buf, sizeof(cmd_buf)) != i2c::ErrorCode::OK) {
+    ESP_LOGW(TAG, "I2C write (cmd 0x%04X) failed", command);
+    return false;
+  }
+  return this->read(data, len) == i2c::ErrorCode::OK;
+}
 bool SEN5XComponent::read_ambient_pressure(uint16_t &pressure_hpa) {
-  uint8_t raw[3] = {0};  // 2 Datenbytes + CRC
-  if (!this->read_bytes(SEN6X_CMD_GET_AMBIENT_PRESSURE, raw, sizeof(raw))) {
+  uint8_t raw[3] = {0};
+  if (!this->read_bytes16(SEN6X_CMD_GET_AMBIENT_PRESSURE, raw, sizeof(raw))) {
     ESP_LOGW(TAG, "Get Ambient Pressure (0x6720) failed");
     return false;
   }
-  pressure_hpa = (uint16_t(raw[0]) << 8) | raw[1];  // Einheit: hPa
+  pressure_hpa = (uint16_t(raw[0]) << 8) | raw[1];
   ESP_LOGD(TAG, "Ambient pressure: %u hPa", pressure_hpa);
   return true;
 }
 
 bool SEN5XComponent::read_sensor_altitude(uint16_t &altitude_m) {
   uint8_t raw[3] = {0};
-  if (!this->read_bytes(SEN6X_CMD_GET_SENSOR_ALTITUDE, raw, sizeof(raw))) {
+  if (!this->read_bytes16(SEN6X_CMD_GET_SENSOR_ALTITUDE, raw, sizeof(raw))) {
     ESP_LOGW(TAG, "Get Sensor Altitude (0x6736) failed");
     return false;
   }
-  altitude_m = (uint16_t(raw[0]) << 8) | raw[1];  // Einheit: Meter
+  altitude_m = (uint16_t(raw[0]) << 8) | raw[1];
   ESP_LOGD(TAG, "Sensor altitude: %u m", altitude_m);
   return true;
 }
-
 
 bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
   uint16_t params[3];
