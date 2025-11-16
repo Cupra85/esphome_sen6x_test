@@ -16,8 +16,10 @@ static const uint16_t SEN5X_CMD_GET_PRODUCT_NAME = 0xD014;  // return 0 bytes
 static const uint16_t SEN5X_CMD_GET_SERIAL_NUMBER = 0xD033;
 static const uint16_t SEN5X_CMD_NOX_ALGORITHM_TUNING = 0x60E1;
 static const uint16_t SEN5X_CMD_READ_MEASUREMENT = 0x0300; //SEN66 only!
+static const uint16_t SEN5X_CMD_RHT_ACCELERATION_MODE = 0x60F7; //not for SEN66 => 0x6100? but seems to read? remove...
 static const uint16_t SEN5X_CMD_START_CLEANING_FAN = 0x5607;
 static const uint16_t SEN5X_CMD_START_MEASUREMENTS = 0x0021;
+static const uint16_t SEN5X_CMD_START_MEASUREMENTS_RHT_ONLY = 0x0037; //not used
 static const uint16_t SEN5X_CMD_STOP_MEASUREMENTS = 0x0104;
 static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
