@@ -245,7 +245,23 @@ SEN5X_ACTION_SCHEMA = maybe_simple_id(
     }
 )
 
+# --- Start Measurement ---
+@automation.register_action(
+    "sen6x.start_measurement", StartMeasurementAction, SEN5X_ACTION_SCHEMA
+)
+async def sen6x_start_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
 
+# --- Stop Measurement ---
+@automation.register_action(
+    "sen6x.stop_measurement", StopMeasurementAction, SEN5X_ACTION_SCHEMA
+)
+async def sen6x_stop_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
+
+# --- Fan Cleaning ---
 @automation.register_action(
     "sen6x.start_fan_autoclean", StartFanAction, SEN5X_ACTION_SCHEMA
 )
