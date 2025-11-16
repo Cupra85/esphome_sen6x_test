@@ -24,7 +24,7 @@ static const uint16_t SEN5X_CMD_STOP_MEASUREMENTS = 0x0104;
 static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
-static const uint16_t SEN5X_CMD_RESET = 0xD304;
+static const uint16_t SEN6X_CMD_RESET = 0xD304;
 static const uint16_t SEN5X_CMD_READ_RAW_VALUES = 0x0405;
 
 void SEN5XComponent::setup() {
