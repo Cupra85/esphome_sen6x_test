@@ -415,5 +415,31 @@ bool SEN5XComponent::start_fan_cleaning() {
   return true;
 }
 
+bool SEN5XComponent::read_device_status(uint32_t &status) {
+  // Read Device Status (0xD206)
+  if (!this->read_words_(0xD206, reinterpret_cast<uint16_t *>(&status), 2)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "read error device status (0xD206), last_error: %d", this->last_error_);
+    return false;
+  } else {
+    this->last_status_ = status;
+    ESP_LOGD(TAG, "Device status read OK (0x%08lX)", status);
+  }
+  return true;
+}
+
+bool SEN5XComponent::read_and_clear_device_status(uint32_t &status) {
+  // Read and Clear Device Status (0xD210)
+  if (!this->read_words_(0xD210, reinterpret_cast<uint16_t *>(&status), 2)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "read error device status (clear) (0xD210), last_error: %d", this->last_error_);
+    return false;
+  } else {
+    this->last_status_ = status;
+    ESP_LOGD(TAG, "Device status (read & cleared) OK (0x%08lX)", status);
+  }
+  return true;
+
+
 }  // namespace sen6x
 }  // namespace esphome
