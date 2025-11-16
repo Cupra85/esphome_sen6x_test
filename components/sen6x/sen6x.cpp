@@ -381,7 +381,7 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
 }
 
 bool SEN5XComponent::start_measurement() {
-  if (!>write_command(SEN5X_CMD_START_MEASUREMENTS)) {
+  if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
     this->status_set_warning();
     ESP_LOGE(TAG, "write error start measurement (%d)", this->last_error_);
     return false;
