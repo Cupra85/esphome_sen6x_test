@@ -25,6 +25,8 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
+static const uint16_t SEN5X_CMD_READ_DEVICE_STATUS = 0xD206;
+static const uint16_t SEN5X_CMD_READ_CLEAR_DEVICE_STATUS = 0xD210;
 
 void SEN5XComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen6x...");
