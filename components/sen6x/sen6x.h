@@ -101,10 +101,6 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool stop_measurement();
   bool start_fan_cleaning();
 
-  // --- SEN6x: Device Status (0xD206) ---
-  bool read_device_status(uint32_t &status);
-  uint32_t get_last_device_status() const { return last_status_; }
-
   std::string get_product_name() const { return product_name_; }
   uint16_t get_firmware_version() const { return firmware_version_; }
   std::string get_serial_string() const {
@@ -142,7 +138,6 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   optional<GasTuning> nox_tuning_params_;
   optional<TemperatureCompensation> temperature_compensation_;
 
-  uint32_t last_status_{0};     // Device Status Register 0xD206
 };
 
 }  // namespace sen6x
