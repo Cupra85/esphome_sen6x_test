@@ -108,6 +108,7 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
     sprintf(buf, "%02d.%02d.%02d", serial_number_[0], serial_number_[1], serial_number_[2]);
     return std::string(buf);
   }
+  bool is_measuring() const { return this->is_measuring_; }
 
  protected:
   bool write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning);
@@ -137,6 +138,8 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   optional<GasTuning> voc_tuning_params_;
   optional<GasTuning> nox_tuning_params_;
   optional<TemperatureCompensation> temperature_compensation_;
+
+  bool is_measuring_ = true;   // Sensor läuft beim Boot immer → Default true
 
 };
 
