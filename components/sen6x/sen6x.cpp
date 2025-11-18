@@ -25,7 +25,6 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
-static const uint16_t SEN6X_CMD_DEVICE_STATUS = 0xD206;
 
 
 void SEN5XComponent::setup() {
@@ -412,30 +411,6 @@ bool SEN5XComponent::start_fan_cleaning() {
   } else {
     ESP_LOGD(TAG, "Fan auto clean started");
   }
-  return true;
-}
-
-bool SEN5XComponent::read_device_status(uint32_t &status) {
-  uint16_t raw[2];
-
-  // 1) Register ansprechen
-  if (!this->write_command(SEN6X_CMD_DEVICE_STATUS)) {
-    ESP_LOGW(TAG, "Device Status (0xD206) write failed");
-    return false;
-  }
-
-  // 2) 32-Bit Status lesen → 2 × 16 Bit
-  if (!this->read_data(raw, 2)) {
-    ESP_LOGW(TAG, "Device Status (0xD206) read failed");
-    return false;
-  }
-
-  // 3) 16+16 Bits zusammenfügen
-  status = ((uint32_t)raw[0] << 16) | raw[1];
-  this->last_status_ = status;
-
-  ESP_LOGD(TAG, "Device Status (0xD206): 0x%08lX", status);
-
   return true;
 }
 
