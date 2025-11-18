@@ -431,6 +431,32 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
   return true;
 }
 
+bool SEN5XComponent::read_ambient_pressure(uint16_t &pressure_hpa) {
+  if (!this->write_command(SEN6X_CMD_GET_AMBIENT_PRESSURE)) {
+    ESP_LOGW(TAG, "Get Ambient Pressure (0x6720) write failed");
+    return false;
+  }
+  if (!this->read_data(pressure_hpa)) {
+    ESP_LOGW(TAG, "Get Ambient Pressure (0x6720) read failed");
+    return false;
+  }
+  ESP_LOGD(TAG, "Ambient pressure: %u hPa", pressure_hpa);
+  return true;
+}
+
+bool SEN5XComponent::read_sensor_altitude(uint16_t &altitude_m) {
+  if (!this->write_command(SEN6X_CMD_GET_SENSOR_ALTITUDE)) {
+    ESP_LOGW(TAG, "Get Sensor Altitude (0x6736) write failed");
+    return false;
+  }
+  if (!this->read_data(altitude_m)) {
+    ESP_LOGW(TAG, "Get Sensor Altitude (0x6736) read failed (idle-only?)");
+    return false;
+  }
+  ESP_LOGD(TAG, "Sensor altitude: %u m", altitude_m);
+  return true;
+}
+
 bool SEN5XComponent::start_measurement() {
   if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
     this->status_set_warning();
