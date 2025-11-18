@@ -25,8 +25,8 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
-static const uint16_t SEN6X_CMD_GET_AMBIENT_PRESSURE = 0x6720;  // Get Ambient Pressure (hPa)
-static const uint16_t SEN6X_CMD_GET_SENSOR_ALTITUDE  = 0x6736;  // Get Sensor Altitude (m, idle only)
+static const uint16_t SEN6X_CMD_AMBIENT_PRESSURE = 0x6720;  // Get Ambient Pressure (hPa)
+static const uint16_t SEN6X_CMD_SENSOR_ALTITUDE  = 0x6736;  // Get Sensor Altitude (m, idle only)
 
 
 void SEN5XComponent::setup() {
@@ -384,53 +384,52 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
 }
 
 bool SEN5XComponent::read_ambient_pressure(uint16_t &pressure_hpa) {
-  if (!this->write_command(SEN6X_CMD_GET_AMBIENT_PRESSURE)) {
+  if (!this->write_command(SEN6X_CMD_AMBIENT_PRESSURE)) {
     ESP_LOGW(TAG, "Get Ambient Pressure (0x6720) write failed");
     return false;
   }
   if (!this->read_data(pressure_hpa)) {
     ESP_LOGW(TAG, "Get Ambient Pressure (0x6720) read failed");
     return false;
+  } else {
+    ESP_LOGD(TAG, "Ambient pressure: %u hPa", pressure_hpa);
   }
-  ESP_LOGD(TAG, "Ambient pressure: %u hPa", pressure_hpa);
   return true;
 }
 
 bool SEN5XComponent::read_sensor_altitude(uint16_t &altitude_m) {
-  if (!this->write_command(SEN6X_CMD_GET_SENSOR_ALTITUDE)) {
+  if (!this->write_command(SEN6X_CMD_SENSOR_ALTITUDE)) {
     ESP_LOGW(TAG, "Get Sensor Altitude (0x6736) write failed");
     return false;
   }
   if (!this->read_data(altitude_m)) {
     ESP_LOGW(TAG, "Get Sensor Altitude (0x6736) read failed (idle-only?)");
     return false;
+  } else {
+    ESP_LOGD(TAG, "Sensor altitude: %u m", altitude_m);
   }
-  ESP_LOGD(TAG, "Sensor altitude: %u m", altitude_m);
   return true;
 }
 
 bool SEN5XComponent::set_ambient_pressure(uint16_t pressure_hpa) {
   uint16_t param = pressure_hpa;
-
-  // gleiches Muster wie write_temperature_compensation_:
-  if (!this->write_command(SEN6X_CMD_GET_AMBIENT_PRESSURE, &param, 1)) {
+  if (!this->write_command(SEN6X_CMD_AMBIENT_PRESSURE, &param, 1)) {
     ESP_LOGE(TAG, "Set Ambient Pressure failed, value=%u hPa, err=%d", pressure_hpa, this->last_error_);
     return false;
+  } else {
+    ESP_LOGD(TAG, "Set Ambient Pressure OK: %u hPa", pressure_hpa);
   }
-
-  ESP_LOGD(TAG, "Set Ambient Pressure OK: %u hPa", pressure_hpa);
   return true;
 }
 
 bool SEN5XComponent::set_sensor_altitude(uint16_t altitude_m) {
   uint16_t param = altitude_m;
-
-  if (!this->write_command(SEN6X_CMD_GET_SENSOR_ALTITUDE, &param, 1)) {
+  if (!this->write_command(SEN6X_CMD_SENSOR_ALTITUDE, &param, 1)) {
     ESP_LOGE(TAG, "Set Sensor Altitude failed, value=%u m, err=%d", altitude_m, this->last_error_);
     return false;
+  } else {
+    ESP_LOGD(TAG, "Set Sensor Altitude OK: %u m", altitude_m);
   }
-
-  ESP_LOGD(TAG, "Set Sensor Altitude OK: %u m", altitude_m);
   return true;
 }
 
