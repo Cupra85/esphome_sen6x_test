@@ -389,7 +389,7 @@ bool SEN5XComponent::start_measurement() {
   } else {
     ESP_LOGD(TAG, "Measurement started");
   }
-  this->is_measuring_ = true;
+  this->is_measuring_ = true; 
   return true;
 }
 
