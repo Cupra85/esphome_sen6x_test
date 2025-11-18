@@ -103,6 +103,9 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
     // --- SEN6x getters (4.8.40 / 4.8.42) ---
   bool read_ambient_pressure(uint16_t &pressure_hpa);
   bool read_sensor_altitude(uint16_t &altitude_m);
+    // --- SEN6x: Set-Methoden für Druck & Höhe ---
+  bool set_ambient_pressure(uint16_t pressure_hpa);
+  bool set_sensor_altitude(uint16_t altitude_m);
 
 
   std::string get_product_name() const { return product_name_; }
