@@ -25,8 +25,9 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
-static const uint16_t SEN6X_CMD_GET_AMBIENT_PRESSURE = 0x6720;
-static const uint16_t SEN6X_CMD_GET_SENSOR_ALTITUDE  = 0x6736;
+static const uint16_t SEN6X_CMD_GET_AMBIENT_PRESSURE = 0x6720;  // Get Ambient Pressure (hPa)
+static const uint16_t SEN6X_CMD_GET_SENSOR_ALTITUDE  = 0x6736;  // Get Sensor Altitude (m, idle only)
+
 
 void SEN5XComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen6x...");
@@ -250,8 +251,6 @@ void SEN5XComponent::dump_config() {
   LOG_SENSOR("  ", "VOC", this->voc_sensor_);  // SEN54 and SEN55 only
   LOG_SENSOR("  ", "NOx", this->nox_sensor_);  // SEN55 only
   LOG_SENSOR("  ", "CO2", this->co2_sensor_);  // SEN66
-  LOG_SENSOR("  ", "Ambient Pressure", this->ambient_pressure_);  // SEN66
-  LOG_SENSOR("  ", "Sensor Altitude", this->sensor_altitude_);  // SEN66
 }
 
 void SEN5XComponent::update() {
@@ -355,6 +354,7 @@ void SEN5XComponent::update() {
       this->co2_sensor_->publish_state(co2);
     this->status_clear_warning();
   });
+}
 
 bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning) {
   uint16_t params[6];
@@ -370,7 +370,6 @@ bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTun
   }
   return result;
 }
-
 
 bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
   uint16_t params[3];
@@ -409,6 +408,7 @@ bool SEN5XComponent::read_sensor_altitude(uint16_t &altitude_m) {
   ESP_LOGD(TAG, "Sensor altitude: %u m", altitude_m);
   return true;
 }
+
 
 bool SEN5XComponent::start_measurement() {
   if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
