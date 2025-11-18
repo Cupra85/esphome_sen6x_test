@@ -409,6 +409,31 @@ bool SEN5XComponent::read_sensor_altitude(uint16_t &altitude_m) {
   return true;
 }
 
+bool SEN5XComponent::set_ambient_pressure(uint16_t pressure_hpa) {
+  uint16_t param = pressure_hpa;
+
+  // gleiches Muster wie write_temperature_compensation_:
+  if (!this->write_command(SEN6X_CMD_GET_AMBIENT_PRESSURE, &param, 1)) {
+    ESP_LOGE(TAG, "Set Ambient Pressure failed, value=%u hPa, err=%d", pressure_hpa, this->last_error_);
+    return false;
+  }
+
+  ESP_LOGD(TAG, "Set Ambient Pressure OK: %u hPa", pressure_hpa);
+  return true;
+}
+
+bool SEN5XComponent::set_sensor_altitude(uint16_t altitude_m) {
+  uint16_t param = altitude_m;
+
+  if (!this->write_command(SEN6X_CMD_GET_SENSOR_ALTITUDE, &param, 1)) {
+    ESP_LOGE(TAG, "Set Sensor Altitude failed, value=%u m, err=%d", altitude_m, this->last_error_);
+    return false;
+  }
+
+  ESP_LOGD(TAG, "Set Sensor Altitude OK: %u m", altitude_m);
+  return true;
+}
+
 
 bool SEN5XComponent::start_measurement() {
   if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
