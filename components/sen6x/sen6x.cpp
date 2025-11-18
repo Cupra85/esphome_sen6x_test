@@ -195,6 +195,7 @@ void SEN5XComponent::setup() {
       if (this->pm_1_0_sensor_ || this->pm_2_5_sensor_ || this->pm_4_0_sensor_ || this->pm_10_0_sensor_ || this->pm_0_10_sensor_) {
         // if any of the gas sensors are active we need a full measurement
         cmd = SEN5X_CMD_START_MEASUREMENTS;
+        this->is_measuring_ = true;
       }
 
       if (!this->write_command(cmd)) {
