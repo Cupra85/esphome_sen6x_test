@@ -57,6 +57,11 @@ CONF_TIME_CONSTANT = "time_constant"
 CONF_VOC = "voc"
 CONF_VOC_BASELINE = "voc_baseline"
 CONF_CO2 = "co2"
+CONF_NC_0_5 = "number_concentration_0_5"
+CONF_NC_1_0 = "number_concentration_1_0"
+CONF_NC_2_5 = "number_concentration_2_5"
+CONF_NC_4_0 = "number_concentration_4_0"
+CONF_NC_10_0 = "number_concentration_10_0"
 
 
 # Actions
@@ -162,6 +167,37 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_HUMIDITY,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+            cv.Optional(CONF_NC_0_5): sensor.sensor_schema(
+                unit_of_measurement="1/cm³",
+                icon=ICON_CHEMICAL_WEAPON,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_NC_1_0): sensor.sensor_schema(
+                unit_of_measurement="1/cm³",
+                icon=ICON_CHEMICAL_WEAPON,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_NC_2_5): sensor.sensor_schema(
+                unit_of_measurement="1/cm³",
+                icon=ICON_CHEMICAL_WEAPON,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_NC_4_0): sensor.sensor_schema(
+                unit_of_measurement="1/cm³",
+                icon=ICON_CHEMICAL_WEAPON,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_NC_10_0): sensor.sensor_schema(
+                unit_of_measurement="1/cm³",
+                icon=ICON_CHEMICAL_WEAPON,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
             cv.Optional(CONF_TEMPERATURE_COMPENSATION): cv.Schema(
                 {
                     cv.Optional(CONF_OFFSET, default=0): cv.float_,
