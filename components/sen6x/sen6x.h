@@ -101,6 +101,9 @@ class SEN5XComponent : public PollingComponent, public sensirion_common::Sensiri
   bool stop_measurement();
   bool start_fan_cleaning();
 
+  bool read_number_concentration(uint16_t *nc05, uint16_t *nc10,
+                               uint16_t *nc25, uint16_t *nc40, uint16_t *nc100);
+
   std::string get_product_name() const { return product_name_; }
   uint16_t get_firmware_version() const { return firmware_version_; }
   std::string get_serial_string() const {
