@@ -170,7 +170,12 @@ CONFIG_SCHEMA = (
                     ),
                     cv.Optional(CONF_TIME_CONSTANT, default=0): cv.int_,
                 }
-            )
+            ),
+            cv.Optional("number_concentration_0_5"): sensor.sensor_schema(),
+            cv.Optional("number_concentration_1_0"): sensor.sensor_schema(),
+            cv.Optional("number_concentration_2_5"): sensor.sensor_schema(),
+            cv.Optional("number_concentration_4_0"): sensor.sensor_schema(),
+            cv.Optional("number_concentration_10_0"): sensor.sensor_schema(),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -239,6 +244,16 @@ async def to_code(config):
                 config[CONF_TEMPERATURE_COMPENSATION][CONF_TIME_CONSTANT],
             )
         )
+    if conf.get("number_concentration_0_5"):
+        var.set_nc_0_5_sensor(yield sensor.new_sensor(conf["number_concentration_0_5"]))
+    if conf.get("number_concentration_1_0"):
+        var.set_nc_1_0_sensor(yield sensor.new_sensor(conf["number_concentration_1_0"]))
+    if conf.get("number_concentration_2_5"):
+        var.set_nc_2_5_sensor(yield sensor.new_sensor(conf["number_concentration_2_5"]))
+    if conf.get("number_concentration_4_0"):
+        var.set_nc_4_0_sensor(yield sensor.new_sensor(conf["number_concentration_4_0"]))
+    if conf.get("number_concentration_10_0"):
+        var.set_nc_10_0_sensor(yield sensor.new_sensor(conf["number_concentration_10_0"]))
 
 
 SEN5X_ACTION_SCHEMA = maybe_simple_id(
