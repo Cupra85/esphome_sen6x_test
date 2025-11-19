@@ -27,6 +27,20 @@ static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
 static const uint16_t SEN6X_CMD_READ_NUMBER_CONCENTRATION = 0x0316;
 
+static uint8_t sen6x_crc8(const uint8_t *data, uint8_t len) {
+  uint8_t crc = 0xFF;
+  for (uint8_t i = 0; i < len; i++) {
+    crc ^= data[i];
+    for (uint8_t b = 0; b < 8; b++) {
+      if (crc & 0x80)
+        crc = (crc << 1) ^ 0x31;
+      else
+        crc <<= 1;
+    }
+  }
+  return crc;
+}
+
 
 void SEN5XComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen6x...");
@@ -394,23 +408,22 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
 bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
                                                uint16_t *nc25, uint16_t *nc40,
                                                uint16_t *nc100) {
-  uint8_t raw[5 * 3];  // 5 values, 2 bytes + CRC
-  if (!this->read_bytes(SEN6X_CMD_READ_NUMBER_CONCENTRATION, raw, sizeof(raw))) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "Error reading number concentration values (%d)", this->last_error_);
-    return false;
+  uint8_t raw[3];
+  uint16_t *targets[5] = { nc05, nc10, nc25, nc40, nc100 };
+
+  for (uint8_t i = 0; i < 5; i++) {
+    if (!this->read_bytes(SEN6X_CMD_READ_NUMBER_CONCENTRATION + i, raw, 3)) {
+      *targets[i] = 0xFFFF;
+      continue;
+    }
+
+    if (sen6x_crc8(raw, 2) != raw[2]) {
+      *targets[i] = 0xFFFF;
+      continue;
+    }
+
+    *targets[i] = (raw[0] << 8) | raw[1];
   }
-
-  auto get_val = [&](int idx) -> uint16_t {
-    return (raw[idx] << 8) | raw[idx + 1];
-  };
-
-  *nc05  = get_val(0);
-  *nc10  = get_val(3);
-  *nc25  = get_val(6);
-  *nc40  = get_val(9);
-  *nc100 = get_val(12);
-
   return true;
 }
 
