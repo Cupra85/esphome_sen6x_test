@@ -329,21 +329,21 @@ void SEN5XComponent::update() {
     float co2 = measurements[8];
     if (measurements[8] == 0xFFFF)
       co2 = NAN;
-
+    }
+    
   uint16_t nc05, nc10, nc25, nc40, nc100;
   if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
-
     if (this->nc_0_5_sensor_ != nullptr)
-        this->nc_0_5_sensor_->publish_state(nc05);
+      this->nc_0_5_sensor_->publish_state(nc05);
     if (this->nc_1_0_sensor_ != nullptr)
-        this->nc_1_0_sensor_->publish_state(nc10);
+      this->nc_1_0_sensor_->publish_state(nc10);
     if (this->nc_2_5_sensor_ != nullptr)
-        this->nc_2_5_sensor_->publish_state(nc25);
+      this->nc_2_5_sensor_->publish_state(nc25);
     if (this->nc_4_0_sensor_ != nullptr)
-        this->nc_4_0_sensor_->publish_state(nc40);
+      this->nc_4_0_sensor_->publish_state(nc40);
     if (this->nc_10_0_sensor_ != nullptr)
-        this->nc_10_0_sensor_->publish_state(nc100);
-
+      this->nc_10_0_sensor_->publish_state(nc100);
+    }
 
     if (this->pm_1_0_sensor_ != nullptr)
       this->pm_1_0_sensor_->publish_state(pm_1_0);
