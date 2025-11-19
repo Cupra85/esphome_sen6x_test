@@ -25,6 +25,7 @@ static const uint16_t SEN5X_CMD_TEMPERATURE_COMPENSATION = 0x60B2;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_STATE = 0x6181;
 static const uint16_t SEN5X_CMD_VOC_ALGORITHM_TUNING = 0x60D0;
 static const uint16_t SEN6X_CMD_RESET = 0xD304;
+static const uint16_t SEN6X_CMD_READ_NUMBER_CONCENTRATION = 0x0316;
 
 
 void SEN5XComponent::setup() {
@@ -378,6 +379,29 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
     ESP_LOGE(TAG, "set temperature_compensation failed. Err=%d", this->last_error_);
     return false;
   }
+  return true;
+}
+
+bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
+                                               uint16_t *nc25, uint16_t *nc40,
+                                               uint16_t *nc100) {
+  uint8_t raw[5 * 3];  // 5 values, 2 bytes + CRC
+  if (!this->read_bytes(SEN6X_CMD_READ_NUMBER_CONCENTRATION, raw, sizeof(raw))) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "Error reading number concentration values (%d)", this->last_error_);
+    return false;
+  }
+
+  auto get_val = [&](int idx) -> uint16_t {
+    return (raw[idx] << 8) | raw[idx + 1];
+  };
+
+  *nc05  = get_val(0);
+  *nc10  = get_val(3);
+  *nc25  = get_val(6);
+  *nc40  = get_val(9);
+  *nc100 = get_val(12);
+
   return true;
 }
 
