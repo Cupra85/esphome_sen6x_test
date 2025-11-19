@@ -394,7 +394,7 @@ bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
 
   auto get_val = [&](int idx) -> uint16_t {
     return (raw[idx] << 8) | raw[idx + 1];
-  };
+  }
 
   *nc05  = get_val(0);
   *nc10  = get_val(3);
