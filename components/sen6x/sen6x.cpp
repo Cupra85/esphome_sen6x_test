@@ -350,8 +350,8 @@ this->set_timeout(20, [this]() {
     }
     this->status_clear_warning();
   });
-
 });
+}
 
 bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning) {
   uint16_t params[6];
