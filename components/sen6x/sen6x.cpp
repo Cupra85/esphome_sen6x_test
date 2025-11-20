@@ -305,7 +305,7 @@ void SEN5XComponent::update() {
     ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
     return;
   }
-  this->set_timeout(20, [this]() {
+  this->set_timeout(50, [this]() {
     uint16_t measurements[9];
 
     if (!this->read_data(measurements, 9)) {
@@ -344,7 +344,7 @@ void SEN5XComponent::update() {
     if (measurements[8] == 0xFFFF)
       co2 = NAN;
 
-   this->set_timeout(40, [this]() {
+
                              
     uint16_t nc05, nc10, nc25, nc40, nc100;
     if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
