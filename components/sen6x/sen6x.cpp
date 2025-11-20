@@ -300,57 +300,84 @@ void SEN5XComponent::update() {
     }
   }
 
-if (!this->write_command(SEN5X_CMD_READ_MEASUREMENT)) {
-  this->status_set_warning();
-  ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
-  return;
-}
-
-this->set_timeout(20, [this]() {
-  uint16_t m[9];
-  if (!this->read_data(m, 9)) {
+  if (!this->write_command(SEN5X_CMD_READ_MEASUREMENT)) {
     this->status_set_warning();
-    ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
+    ESP_LOGD(TAG, "write error read measurement (%d)", this->last_error_);
     return;
   }
+  this->set_timeout(20, [this]() {
+    uint16_t measurements[9];
 
-  float pm1   = (m[0] == 0xFFFF) ? NAN : m[0] / 10.0f;
-  float pm25  = (m[1] == 0xFFFF || m[0] == 0xFFFF) ? NAN : (m[1] - m[0]) / 10.0f;
-  float pm4   = (m[2] == 0xFFFF || m[1] == 0xFFFF) ? NAN : (m[2] - m[1]) / 10.0f;
-  float pm10  = (m[3] == 0xFFFF || m[2] == 0xFFFF) ? NAN : (m[3] - m[2]) / 10.0f;
-  float pmTot = (m[3] == 0xFFFF) ? NAN : m[3] / 10.0f;
-
-  float hum   = (m[4] == 0xFFFF) ? NAN : m[4] / 100.0f;
-  float temp  = (m[5] == 0xFFFF) ? NAN : ((int16_t)m[5]) / 200.0f;
-  float voc   = (m[6] == 0x7FFF) ? NAN : m[6] / 10.0f;
-  float nox   = (m[7] == 0x7FFF) ? NAN : m[7] / 10.0f;
-  float co2   = (m[8] == 0xFFFF) ? NAN : m[8];
-
-  // 🟢 Werte publishen
-  if (this->pm_1_0_sensor_) this->pm_1_0_sensor_->publish_state(pm1);
-  if (this->pm_2_5_sensor_) this->pm_2_5_sensor_->publish_state(pm25);
-  if (this->pm_4_0_sensor_) this->pm_4_0_sensor_->publish_state(pm4);
-  if (this->pm_10_0_sensor_) this->pm_10_0_sensor_->publish_state(pm10);
-  if (this->pm_0_10_sensor_) this->pm_0_10_sensor_->publish_state(pmTot);
-  if (this->temperature_sensor_) this->temperature_sensor_->publish_state(temp);
-  if (this->humidity_sensor_) this->humidity_sensor_->publish_state(hum);
-  if (this->voc_sensor_) this->voc_sensor_->publish_state(voc);
-  if (this->nox_sensor_) this->nox_sensor_->publish_state(nox);
-  if (this->co2_sensor_) this->co2_sensor_->publish_state(co2);
-
-  // 🕒 Verzögertes NC-Lesen (WICHTIG!)
-  this->set_timeout(40, [this]() {
-    uint16_t a,b,c,d,e;
-    if (this->read_number_concentration(&a,&b,&c,&d,&e)) {
-      if (this->nc_0_5_sensor_) this->nc_0_5_sensor_->publish_state(a);
-      if (this->nc_1_0_sensor_) this->nc_1_0_sensor_->publish_state(b);
-      if (this->nc_2_5_sensor_) this->nc_2_5_sensor_->publish_state(c);
-      if (this->nc_4_0_sensor_) this->nc_4_0_sensor_->publish_state(d);
-      if (this->nc_10_0_sensor_) this->nc_10_0_sensor_->publish_state(e);
+    if (!this->read_data(measurements, 9)) {
+      this->status_set_warning();
+      ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
+      return;
     }
+    float pm_1_0 = measurements[0] / 10.0;
+    if (measurements[0] == 0xFFFF)
+      pm_1_0 = NAN;
+    float pm_2_5 = (measurements[1] - measurements[0]) / 10.0;
+    if (measurements[1] == 0xFFFF || measurements[0] == 0xFFFF)
+      pm_2_5 = NAN;
+    float pm_4_0 = (measurements[2] - measurements[1]) / 10.0;
+    if (measurements[2] == 0xFFFF || measurements[1] == 0xFFFF)
+      pm_4_0 = NAN;
+    float pm_10_0 = (measurements[3] - measurements[2]) / 10.0;
+    if (measurements[3] == 0xFFFF || measurements[2] == 0xFFFF)
+      pm_10_0 = NAN;
+    float pm_0_10 = measurements[3] / 10.0;
+    if (measurements[3] == 0xFFFF)
+      pm_0_10 = NAN;
+    float humidity = measurements[4] / 100.0;
+    if (measurements[4] == 0xFFFF)
+      humidity = NAN;
+    float temperature = (int16_t) measurements[5] / 200.0;
+    if (measurements[5] == 0xFFFF)
+      temperature = NAN;
+    float voc = measurements[6] / 10.0;
+    if (measurements[6] == 0x7FFF)
+      voc = NAN;
+    float nox = measurements[7] / 10.0;
+    if (measurements[7] == 0x7FFF)
+      nox = NAN;
+    float co2 = measurements[8];
+    if (measurements[8] == 0xFFFF)
+      co2 = NAN;
+
+   this->set_timeout(40, [this]() {
+                             
+    uint16_t nc05, nc10, nc25, nc40, nc100;
+    if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
+      if (this->nc_0_5_sensor_ != nullptr) this->nc_0_5_sensor_->publish_state(nc05);
+      if (this->nc_1_0_sensor_ != nullptr) this->nc_1_0_sensor_->publish_state(nc10);
+      if (this->nc_2_5_sensor_ != nullptr) this->nc_2_5_sensor_->publish_state(nc25);
+      if (this->nc_4_0_sensor_ != nullptr) this->nc_4_0_sensor_->publish_state(nc40);
+      if (this->nc_10_0_sensor_ != nullptr) this->nc_10_0_sensor_->publish_state(nc100);
+    }
+
+
+    if (this->pm_1_0_sensor_ != nullptr)
+      this->pm_1_0_sensor_->publish_state(pm_1_0);
+    if (this->pm_2_5_sensor_ != nullptr)
+      this->pm_2_5_sensor_->publish_state(pm_2_5);
+    if (this->pm_4_0_sensor_ != nullptr)
+      this->pm_4_0_sensor_->publish_state(pm_4_0);
+    if (this->pm_10_0_sensor_ != nullptr)
+      this->pm_10_0_sensor_->publish_state(pm_10_0);
+    if (this->pm_0_10_sensor_ != nullptr)
+      this->pm_0_10_sensor_->publish_state(pm_0_10);
+    if (this->temperature_sensor_ != nullptr)
+      this->temperature_sensor_->publish_state(temperature);
+    if (this->humidity_sensor_ != nullptr)
+      this->humidity_sensor_->publish_state(humidity);
+    if (this->voc_sensor_ != nullptr)
+      this->voc_sensor_->publish_state(voc);
+    if (this->nox_sensor_ != nullptr)
+      this->nox_sensor_->publish_state(nox);
+    if (this->co2_sensor_ != nullptr)
+      this->co2_sensor_->publish_state(co2);
     this->status_clear_warning();
   });
-});
 }
 
 bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTuning &tuning) {
@@ -368,47 +395,49 @@ bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTun
   return result;
 }
 
-bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
-                                               uint16_t *nc25, uint16_t *nc40,
-                                               uint16_t *nc100) {
-  const uint16_t CMD_STATUS = 0x0202;
-
-  // Warten, bis neue Daten bereit stehen
-  uint16_t status = 0;
-  for (uint8_t i = 0; i < 10; i++) {  // Max. 10 Versuche (ca. 200 ms)
-    if (this->write_command(CMD_STATUS) && this->read_data(status)) {
-      if (status == 1) break;     // Daten bereit!
-    }
-    delay(20);
-  }
-
-  if (status != 1) {
-    ESP_LOGW(TAG, "NC not ready -> skip");
+bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
+  uint16_t params[3];
+  params[0] = compensation.offset;
+  params[1] = compensation.normalized_offset_slope;
+  params[2] = compensation.time_constant;
+  if (!write_command(SEN5X_CMD_TEMPERATURE_COMPENSATION, params, 3)) {
+    ESP_LOGE(TAG, "set temperature_compensation failed. Err=%d", this->last_error_);
     return false;
   }
-
-  // Jetzt NC korrekt lesen
-  uint16_t raw[5];
-  if (!this->write_command(SEN6X_CMD_READ_NUMBER_CONCENTRATION)) {
-    ESP_LOGE(TAG, "Error write 0x0316");
-    return false;
-  }
-  delay(20);
-
-  if (!this->read_data(raw, 5)) {
-    ESP_LOGE(TAG, "Error read 0x0316");
-    return false;
-  }
-
-  *nc05  = raw[0];
-  *nc10  = raw[1];
-  *nc25  = raw[2];
-  *nc40  = raw[3];
-  *nc100 = raw[4];
-
   return true;
 }
 
+bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
+                                               uint16_t *nc25, uint16_t *nc40,
+                                               uint16_t *nc100) {
+  // Laut Datenblatt: 0x0316 → 5 Words (je 2 Byte + CRC), insgesamt 20 ms
+  uint16_t raw[5];
+
+  // 1. Command senden
+  if (!this->write_command(SEN6X_CMD_READ_NUMBER_CONCENTRATION)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "Error writing Number Concentration command (0x0316), err=%d",
+             this->last_error_);
+    return false;
+  }
+
+  // 2. 5 Words + CRC lesen (read_data macht CRC-Prüfung für uns)
+  if (!this->read_data(raw, 5)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "Error reading Number Concentration values (0x0316), err=%d",
+             this->last_error_);
+    return false;
+  }
+
+  // 3. Werte zuweisen (Einheit: 1/cm³, kein Scaling)
+  *nc05  = raw[0];  // NC ≤0.5 µm
+  *nc10  = raw[1];  // NC ≤1.0 µm
+  *nc25  = raw[2];  // NC ≤2.5 µm
+  *nc40  = raw[3];  // NC ≤4.0 µm
+  *nc100 = raw[4];  // NC ≤10 µm
+
+  return true;
+}
 
 bool SEN5XComponent::start_measurement() {
   if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
