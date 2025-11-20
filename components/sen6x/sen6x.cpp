@@ -410,34 +410,26 @@ bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensati
 bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
                                                uint16_t *nc25, uint16_t *nc40,
                                                uint16_t *nc100) {
-  // Laut Datenblatt: 0x0316 → 5 Words (je 2 Byte + CRC), insgesamt 20 ms
-  uint16_t raw[5];
-
-  // 1. Command senden
-  if (!this->write_command(SEN6X_CMD_READ_NUMBER_CONCENTRATION)) {
+  uint8_t raw[5 * 3];  // 5 values, 2 bytes + CRC
+  if (!this->read_bytes(SEN6X_CMD_READ_NUMBER_CONCENTRATION, raw, sizeof(raw))) {
     this->status_set_warning();
-    ESP_LOGE(TAG, "Error writing Number Concentration command (0x0316), err=%d",
-             this->last_error_);
+    ESP_LOGE(TAG, "Error reading number concentration values (%d)", this->last_error_);
     return false;
   }
 
-  // 2. 5 Words + CRC lesen (read_data macht CRC-Prüfung für uns)
-  if (!this->read_data(raw, 5)) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "Error reading Number Concentration values (0x0316), err=%d",
-             this->last_error_);
-    return false;
-  }
+  auto get_val = [&](int idx) -> uint16_t {
+    return (raw[idx] << 8) | raw[idx + 1];
+  };
 
-  // 3. Werte zuweisen (Einheit: 1/cm³, kein Scaling)
-  *nc05  = raw[0];  // NC ≤0.5 µm
-  *nc10  = raw[1];  // NC ≤1.0 µm
-  *nc25  = raw[2];  // NC ≤2.5 µm
-  *nc40  = raw[3];  // NC ≤4.0 µm
-  *nc100 = raw[4];  // NC ≤10 µm
+  *nc05  = get_val(0);
+  *nc10  = get_val(3);
+  *nc25  = get_val(6);
+  *nc40  = get_val(9);
+  *nc100 = get_val(12);
 
   return true;
 }
+
 
 bool SEN5XComponent::start_measurement() {
   if (!write_command(SEN5X_CMD_START_MEASUREMENTS)) {
