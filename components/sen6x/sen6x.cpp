@@ -368,37 +368,43 @@ bool SEN5XComponent::write_tuning_parameters_(uint16_t i2c_command, const GasTun
   return result;
 }
 
-bool SEN5XComponent::write_temperature_compensation_(const TemperatureCompensation &compensation) {
-  uint16_t params[3];
-  params[0] = compensation.offset;
-  params[1] = compensation.normalized_offset_slope;
-  params[2] = compensation.time_constant;
-  if (!write_command(SEN5X_CMD_TEMPERATURE_COMPENSATION, params, 3)) {
-    ESP_LOGE(TAG, "set temperature_compensation failed. Err=%d", this->last_error_);
-    return false;
-  }
-  return true;
-}
-
 bool SEN5XComponent::read_number_concentration(uint16_t *nc05, uint16_t *nc10,
                                                uint16_t *nc25, uint16_t *nc40,
                                                uint16_t *nc100) {
-  uint8_t raw[5 * 3];  // 5 values, 2 bytes + CRC
-  if (!this->read_bytes(SEN6X_CMD_READ_NUMBER_CONCENTRATION, raw, sizeof(raw))) {
-    this->status_set_warning();
-    ESP_LOGE(TAG, "Error reading number concentration values (%d)", this->last_error_);
+  const uint16_t CMD_STATUS = 0x0202;
+
+  // Warten, bis neue Daten bereit stehen
+  uint16_t status = 0;
+  for (uint8_t i = 0; i < 10; i++) {  // Max. 10 Versuche (ca. 200 ms)
+    if (this->write_command(CMD_STATUS) && this->read_data(status)) {
+      if (status == 1) break;     // Daten bereit!
+    }
+    delay(20);
+  }
+
+  if (status != 1) {
+    ESP_LOGW(TAG, "NC not ready -> skip");
     return false;
   }
 
-  auto get_val = [&](int idx) -> uint16_t {
-    return (raw[idx] << 8) | raw[idx + 1];
-  };
+  // Jetzt NC korrekt lesen
+  uint16_t raw[5];
+  if (!this->write_command(SEN6X_CMD_READ_NUMBER_CONCENTRATION)) {
+    ESP_LOGE(TAG, "Error write 0x0316");
+    return false;
+  }
+  delay(20);
 
-  *nc05  = get_val(0);
-  *nc10  = get_val(3);
-  *nc25  = get_val(6);
-  *nc40  = get_val(9);
-  *nc100 = get_val(12);
+  if (!this->read_data(raw, 5)) {
+    ESP_LOGE(TAG, "Error read 0x0316");
+    return false;
+  }
+
+  *nc05  = raw[0];
+  *nc10  = raw[1];
+  *nc25  = raw[2];
+  *nc40  = raw[3];
+  *nc100 = raw[4];
 
   return true;
 }
