@@ -344,6 +344,7 @@ void SEN5XComponent::update() {
     if (measurements[8] == 0xFFFF)
       co2 = NAN;
 
+  this->set_timeout(50, [this]() {
     uint16_t nc05, nc10, nc25, nc40, nc100;
     if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
       if (this->nc_0_5_sensor_ != nullptr) this->nc_0_5_sensor_->publish_state(nc05);
