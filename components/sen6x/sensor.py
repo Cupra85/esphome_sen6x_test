@@ -60,7 +60,13 @@ CONF_STD_INITIAL = "std_initial"
 CONF_TIME_CONSTANT = "time_constant"
 CONF_VOC = "voc"
 CONF_VOC_BASELINE = "voc_baseline"
-CONF_CO2 = "co2"
+
+# unsere neuen Keys für NC
+CONF_NC_0_5 = "number_concentration_0_5"
+CONF_NC_1_0 = "number_concentration_1_0"
+CONF_NC_2_5 = "number_concentration_2_5"
+CONF_NC_4_0 = "number_concentration_4_0"
+CONF_NC_10_0 = "number_concentration_10_0"
 
 
 GAS_SENSOR = cv.Schema(
@@ -97,8 +103,6 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SEN5XComponent),
-
-            # PM
             cv.Optional(CONF_PM_1_0): sensor.sensor_schema(
                 unit_of_measurement=UNIT_MICROGRAMS_PER_CUBIC_METER,
                 icon=ICON_CHEMICAL_WEAPON,
@@ -126,8 +130,6 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_PM10,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
-            # VOC / NOx
             cv.Optional(CONF_VOC): sensor.sensor_schema(
                 icon=ICON_RADIATOR,
                 accuracy_decimals=0,
@@ -140,8 +142,6 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_AQI,
                 state_class=STATE_CLASS_MEASUREMENT,
             ).extend(GAS_SENSOR),
-
-            # CO2
             cv.Optional(CONF_CO2): sensor.sensor_schema(
                 unit_of_measurement=UNIT_PARTS_PER_MILLION,
                 icon=ICON_MOLECULE_CO2,
@@ -149,12 +149,8 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_CARBON_DIOXIDE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
-            # Optionen
             cv.Optional(CONF_STORE_BASELINE, default=True): cv.boolean,
             cv.Optional(CONF_VOC_BASELINE): cv.hex_uint16_t,
-
-            # Temperatur & Feuchte
             cv.Optional(CONF_TEMPERATURE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CELSIUS,
                 icon=ICON_THERMOMETER,
@@ -169,8 +165,6 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_HUMIDITY,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
-            # Temperaturkompensation
             cv.Optional(CONF_TEMPERATURE_COMPENSATION): cv.Schema(
                 {
                     cv.Optional(CONF_OFFSET, default=0): cv.float_,
@@ -180,13 +174,12 @@ CONFIG_SCHEMA = (
                     cv.Optional(CONF_TIME_CONSTANT, default=0): cv.int_,
                 }
             ),
-
-            # Number Concentration (0x0316)
-            cv.Optional("number_concentration_0_5"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_1_0"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_2_5"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_4_0"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_10_0"): sensor.sensor_schema(),
+            # unsere 5 NC-Sensoren
+            cv.Optional(CONF_NC_0_5): sensor.sensor_schema(),
+            cv.Optional(CONF_NC_1_0): sensor.sensor_schema(),
+            cv.Optional(CONF_NC_2_5): sensor.sensor_schema(),
+            cv.Optional(CONF_NC_4_0): sensor.sensor_schema(),
+            cv.Optional(CONF_NC_10_0): sensor.sensor_schema(),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -206,7 +199,7 @@ SENSOR_MAP = {
 }
 
 SETTING_MAP = {
-    # aktuell leer, könnte z.B. store_baseline etc. enthalten
+    # aktuell leer
 }
 
 
@@ -215,16 +208,16 @@ async def to_code(config):
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
 
-    # Einstellungen (falls in SETTING_MAP befüllt)
-    for key, funcName in SETTING_MAP.items():
+    # Einstellungen (Temperaturkompensation etc.)
+    for key, func_name in SETTING_MAP.items():
         if key in config:
-            cg.add(getattr(var, funcName)(config[key]))
+            cg.add(getattr(var, func_name)(config[key]))
 
-    # Standard-Sensoren aus SENSOR_MAP
-    for key, funcName in SENSOR_MAP.items():
+    # normale Sensoren
+    for key, func_name in SENSOR_MAP.items():
         if key in config:
             sens = await sensor.new_sensor(config[key])
-            cg.add(getattr(var, funcName)(sens))
+            cg.add(getattr(var, func_name)(sens))
 
     # VOC Tuning
     if CONF_VOC in config and CONF_ALGORITHM_TUNING in config[CONF_VOC]:
@@ -253,35 +246,36 @@ async def to_code(config):
             )
         )
 
-    # Temperatur-Kompensation
+    # Temperaturkompensation
     if CONF_TEMPERATURE_COMPENSATION in config:
+        cfg = config[CONF_TEMPERATURE_COMPENSATION]
         cg.add(
             var.set_temperature_compensation(
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_OFFSET],
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_NORMALIZED_OFFSET_SLOPE],
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_TIME_CONSTANT],
+                cfg[CONF_OFFSET],
+                cfg[CONF_NORMALIZED_OFFSET_SLOPE],
+                cfg[CONF_TIME_CONSTANT],
             )
         )
 
-    # ---------------- NUMBER CONCENTRATION (0x0316) -----------------
-    if config.get("number_concentration_0_5"):
-        sens = await sensor.new_sensor(config["number_concentration_0_5"])
+    # --- Number Concentration Sensoren zuweisen ---
+    if CONF_NC_0_5 in config:
+        sens = await sensor.new_sensor(config[CONF_NC_0_5])
         cg.add(var.set_nc_0_5_sensor(sens))
 
-    if config.get("number_concentration_1_0"):
-        sens = await sensor.new_sensor(config["number_concentration_1_0"])
+    if CONF_NC_1_0 in config:
+        sens = await sensor.new_sensor(config[CONF_NC_1_0])
         cg.add(var.set_nc_1_0_sensor(sens))
 
-    if config.get("number_concentration_2_5"):
-        sens = await sensor.new_sensor(config["number_concentration_2_5"])
+    if CONF_NC_2_5 in config:
+        sens = await sensor.new_sensor(config[CONF_NC_2_5])
         cg.add(var.set_nc_2_5_sensor(sens))
 
-    if config.get("number_concentration_4_0"):
-        sens = await sensor.new_sensor(config["number_concentration_4_0"])
+    if CONF_NC_4_0 in config:
+        sens = await sensor.new_sensor(config[CONF_NC_4_0])
         cg.add(var.set_nc_4_0_sensor(sens))
 
-    if config.get("number_concentration_10_0"):
-        sens = await sensor.new_sensor(config["number_concentration_10_0"])
+    if CONF_NC_10_0 in config:
+        sens = await sensor.new_sensor(config[CONF_NC_10_0])
         cg.add(var.set_nc_10_0_sensor(sens))
 
 
@@ -299,7 +293,6 @@ async def sen6x_start_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)
 
-
 # --- Stop Measurement ---
 @automation.register_action(
     "sen6x.stop_measurement", StopMeasurementAction, SEN5X_ACTION_SCHEMA
@@ -308,11 +301,10 @@ async def sen6x_stop_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)
 
-
 # --- Fan Cleaning ---
 @automation.register_action(
     "sen6x.start_fan_cleaning", StartFanAction, SEN5X_ACTION_SCHEMA
 )
-async def sen54_fan_to_code(config, action_id, template_arg, args):
+async def sen6x_fan_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)
