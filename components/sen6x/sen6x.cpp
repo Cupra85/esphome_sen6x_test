@@ -313,6 +313,7 @@ void SEN5XComponent::update() {
       ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
       return;
     }
+
     float pm_1_0 = measurements[0] / 10.0;
     if (measurements[0] == 0xFFFF)
       pm_1_0 = NAN;
@@ -344,39 +345,41 @@ void SEN5XComponent::update() {
     if (measurements[8] == 0xFFFF)
       co2 = NAN;
 
+    // 👉 FIX: Werte werden captured!
+    this->set_timeout(40, [this, pm_1_0, pm_2_5, pm_4_0, pm_10_0, pm_0_10, humidity, temperature, voc, nox, co2]() {
 
-                             
-    uint16_t nc05, nc10, nc25, nc40, nc100;
-    if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
-      if (this->nc_0_5_sensor_ != nullptr) this->nc_0_5_sensor_->publish_state(nc05);
-      if (this->nc_1_0_sensor_ != nullptr) this->nc_1_0_sensor_->publish_state(nc10);
-      if (this->nc_2_5_sensor_ != nullptr) this->nc_2_5_sensor_->publish_state(nc25);
-      if (this->nc_4_0_sensor_ != nullptr) this->nc_4_0_sensor_->publish_state(nc40);
-      if (this->nc_10_0_sensor_ != nullptr) this->nc_10_0_sensor_->publish_state(nc100);
-    }
+      uint16_t nc05, nc10, nc25, nc40, nc100;
+      if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
+        if (this->nc_0_5_sensor_ != nullptr) this->nc_0_5_sensor_->publish_state(nc05);
+        if (this->nc_1_0_sensor_ != nullptr) this->nc_1_0_sensor_->publish_state(nc10);
+        if (this->nc_2_5_sensor_ != nullptr) this->nc_2_5_sensor_->publish_state(nc25);
+        if (this->nc_4_0_sensor_ != nullptr) this->nc_4_0_sensor_->publish_state(nc40);
+        if (this->nc_10_0_sensor_ != nullptr) this->nc_10_0_sensor_->publish_state(nc100);
+      }
 
+      if (this->pm_1_0_sensor_ != nullptr)
+        this->pm_1_0_sensor_->publish_state(pm_1_0);
+      if (this->pm_2_5_sensor_ != nullptr)
+        this->pm_2_5_sensor_->publish_state(pm_2_5);
+      if (this->pm_4_0_sensor_ != nullptr)
+        this->pm_4_0_sensor_->publish_state(pm_4_0);
+      if (this->pm_10_0_sensor_ != nullptr)
+        this->pm_10_0_sensor_->publish_state(pm_10_0);
+      if (this->pm_0_10_sensor_ != nullptr)
+        this->pm_0_10_sensor_->publish_state(pm_0_10);
+      if (this->temperature_sensor_ != nullptr)
+        this->temperature_sensor_->publish_state(temperature);
+      if (this->humidity_sensor_ != nullptr)
+        this->humidity_sensor_->publish_state(humidity);
+      if (this->voc_sensor_ != nullptr)
+        this->voc_sensor_->publish_state(voc);
+      if (this->nox_sensor_ != nullptr)
+        this->nox_sensor_->publish_state(nox);
+      if (this->co2_sensor_ != nullptr)
+        this->co2_sensor_->publish_state(co2);
 
-    if (this->pm_1_0_sensor_ != nullptr)
-      this->pm_1_0_sensor_->publish_state(pm_1_0);
-    if (this->pm_2_5_sensor_ != nullptr)
-      this->pm_2_5_sensor_->publish_state(pm_2_5);
-    if (this->pm_4_0_sensor_ != nullptr)
-      this->pm_4_0_sensor_->publish_state(pm_4_0);
-    if (this->pm_10_0_sensor_ != nullptr)
-      this->pm_10_0_sensor_->publish_state(pm_10_0);
-    if (this->pm_0_10_sensor_ != nullptr)
-      this->pm_0_10_sensor_->publish_state(pm_0_10);
-    if (this->temperature_sensor_ != nullptr)
-      this->temperature_sensor_->publish_state(temperature);
-    if (this->humidity_sensor_ != nullptr)
-      this->humidity_sensor_->publish_state(humidity);
-    if (this->voc_sensor_ != nullptr)
-      this->voc_sensor_->publish_state(voc);
-    if (this->nox_sensor_ != nullptr)
-      this->nox_sensor_->publish_state(nox);
-    if (this->co2_sensor_ != nullptr)
-      this->co2_sensor_->publish_state(co2);
-    this->status_clear_warning();
+      this->status_clear_warning();
+    });
   });
 }
 
