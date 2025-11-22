@@ -3,7 +3,7 @@ from esphome.automation import maybe_simple_id
 import esphome.codegen as cg
 from esphome.components import i2c, sensirion_common, sensor
 import esphome.config_validation as cv
-from esphome.const import (
+from esphome.const import ( 
     CONF_HUMIDITY,
     CONF_ID,
     CONF_OFFSET,
