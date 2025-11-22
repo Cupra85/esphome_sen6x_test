@@ -174,13 +174,41 @@ CONFIG_SCHEMA = (
                     cv.Optional(CONF_TIME_CONSTANT, default=0): cv.int_,
                 }
             ),
-            # unsere 5 NC-Sensoren
-            cv.Optional(CONF_NC_0_5): sensor.sensor_schema(),
-            cv.Optional(CONF_NC_1_0): sensor.sensor_schema(),
-            cv.Optional(CONF_NC_2_5): sensor.sensor_schema(),
-            cv.Optional(CONF_NC_4_0): sensor.sensor_schema(),
-            cv.Optional(CONF_NC_10_0): sensor.sensor_schema(),
-        }
+            
+            cv.Optional("number_concentration_0_5"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_1_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_2_5"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_4_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_10_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
     )
     .extend(cv.polling_component_schema("60s"))
     .extend(i2c.i2c_device_schema(0x6B))
