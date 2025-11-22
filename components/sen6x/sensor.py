@@ -3,7 +3,7 @@ from esphome.automation import maybe_simple_id
 import esphome.codegen as cg
 from esphome.components import i2c, sensirion_common, sensor
 import esphome.config_validation as cv
-from esphome.const import ( 
+from esphome.const import (
     CONF_HUMIDITY,
     CONF_ID,
     CONF_OFFSET,
@@ -175,12 +175,40 @@ CONFIG_SCHEMA = (
                 }
             ),
             
-            cv.Optional("number_concentration_0_5"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_1_0"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_2_5"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_4_0"): sensor.sensor_schema(),
-            cv.Optional("number_concentration_10_0"): sensor.sensor_schema(),
+            cv.Optional("number_concentration_0_5"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
 
+            cv.Optional("number_concentration_1_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_2_5"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_4_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+
+            cv.Optional("number_concentration_10_0"): sensor.sensor_schema(
+                unit_of_measurement="p/cm³",
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
     )
     .extend(cv.polling_component_schema("60s"))
     .extend(i2c.i2c_device_schema(0x6B))
