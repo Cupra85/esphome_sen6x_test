@@ -346,7 +346,7 @@ void SEN5XComponent::update() {
       co2 = NAN;
 
     // 👉 FIX: Werte werden captured!
-    this->set_timeout(40, [this, pm_1_0, pm_2_5, pm_4_0, pm_10_0, pm_0_10, humidity, temperature, voc, nox, co2]() {
+    this->set_timeout(50, [this, pm_1_0, pm_2_5, pm_4_0, pm_10_0, pm_0_10, humidity, temperature, voc, nox, co2]() {
 
       uint16_t nc05, nc10, nc25, nc40, nc100;
       if (this->read_number_concentration(&nc05, &nc10, &nc25, &nc40, &nc100)) {
