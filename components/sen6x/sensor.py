@@ -177,35 +177,31 @@ CONFIG_SCHEMA = (
             
             cv.Optional("number_concentration_0_5"): sensor.sensor_schema(
                 unit_of_measurement="p/cm³",
-                icon="mdi:counter",
+                icon="mdi:chart-scatter-plot",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
             cv.Optional("number_concentration_1_0"): sensor.sensor_schema(
                 unit_of_measurement="p/cm³",
-                icon="mdi:counter",
+                icon="mdi:chart-scatter-plot",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
             cv.Optional("number_concentration_2_5"): sensor.sensor_schema(
                 unit_of_measurement="p/cm³",
-                icon="mdi:counter",
+                icon="mdi:chart-scatter-plot",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
             cv.Optional("number_concentration_4_0"): sensor.sensor_schema(
                 unit_of_measurement="p/cm³",
-                icon="mdi:counter",
+                icon="mdi:chart-scatter-plot",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-
             cv.Optional("number_concentration_10_0"): sensor.sensor_schema(
                 unit_of_measurement="p/cm³",
-                icon="mdi:counter",
+                icon="mdi:chart-scatter-plot",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
